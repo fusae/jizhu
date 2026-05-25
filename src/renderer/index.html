@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>贴记</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: #f5f5f0;
+      color: #1a1a1a;
+      user-select: none;
+    }
+    .header {
+      padding: 16px 20px;
+      background: #fff;
+      border-bottom: 1px solid #e5e5dc;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .header h1 { font-size: 20px; font-weight: 700; color: #1f4f3a; }
+    .header .count { font-size: 14px; color: #888; margin-left: 8px; }
+    .add-btn {
+      padding: 6px 16px;
+      border: none;
+      border-radius: 6px;
+      background: #1f4f3a;
+      color: #fff;
+      font-size: 14px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .add-btn:hover { background: #183f2e; }
+    .tabs {
+      display: flex;
+      padding: 0 20px;
+      background: #fff;
+      border-bottom: 1px solid #e5e5dc;
+    }
+    .tab {
+      padding: 10px 16px;
+      font-size: 14px;
+      color: #888;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      font-weight: 500;
+    }
+    .tab.active { color: #1f4f3a; border-bottom-color: #1f4f3a; }
+    .task-list { padding: 12px; }
+    .task-card {
+      background: #fff;
+      border-radius: 8px;
+      padding: 14px;
+      margin-bottom: 10px;
+      border: 1px solid #e5e5dc;
+      cursor: pointer;
+      transition: box-shadow .15s;
+    }
+    .task-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+    .task-card.done { opacity: .55; }
+    .task-card .deadline {
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .task-card .deadline.urgent { color: #d32f2f; }
+    .task-card .deadline.warning { color: #e67e22; }
+    .task-card .deadline.normal { color: #1f4f3a; }
+    .task-card .deadline.past { color: #999; }
+    .task-card .content {
+      font-size: 13px;
+      color: #555;
+      line-height: 1.6;
+      max-height: 60px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+    }
+    .task-card .note {
+      font-size: 14px;
+      color: #1a1a1a;
+      font-weight: 500;
+      margin-top: 4px;
+    }
+    .task-card .meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 8px;
+      font-size: 11px;
+      color: #aaa;
+    }
+    .task-card .actions {
+      display: flex;
+      gap: 8px;
+    }
+    .task-card .actions button {
+      padding: 3px 10px;
+      border: none;
+      border-radius: 4px;
+      font-size: 11px;
+      cursor: pointer;
+      font-weight: 500;
+    }
+    .btn-done { background: #e8f5e9; color: #2e7d32; }
+    .btn-done:hover { background: #c8e6c9; }
+    .btn-delete { background: #fbe9e7; color: #c62828; }
+    .btn-delete:hover { background: #ffccbc; }
+    .btn-reopen { background: #e3f2fd; color: #1565c0; }
+    .btn-reopen:hover { background: #bbdefb; }
+
+    .empty {
+      text-align: center;
+      padding: 60px 20px;
+      color: #bbb;
+    }
+    .empty .icon { font-size: 48px; margin-bottom: 12px; }
+    .empty p { font-size: 14px; margin-top: 4px; }
+    .empty .shortcut { font-size: 12px; color: #ccc; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div style="display:flex;align-items:baseline;">
+      <h1>贴记</h1>
+      <span class="count" id="pendingCount"></span>
+    </div>
+    <button class="add-btn" onclick="openQuickAdd()">+ 新建</button>
+  </div>
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('pending')" id="tab-pending">待办</div>
+    <div class="tab" onclick="switchTab('done')" id="tab-done">已完成</div>
+  </div>
+  <div class="task-list" id="taskList"></div>
+
+  <script>
+    let currentTab = 'pending';
+
+    async function loadTasks() {
+      const pending = await window.api.tasks.listPending();
+      const count = pending.length;
+      document.getElementById('pendingCount').textContent = count > 0 ? `(${count})` : '';
+
+      const tasks = currentTab === 'done'
+        ? await window.api.tasks.listCompleted()
+        : pending;
+
+      renderTasks(tasks);
+    }
+
+    function deadlineLabel(iso) {
+      const d = new Date(iso);
+      const now = new Date();
+      const diff = d.getTime() - now.getTime();
+      const minutes = Math.round(diff / (1000 * 60));
+      const hours = Math.round(diff / (1000 * 60 * 60));
+      const days = Math.round(diff / (1000 * 60 * 60 * 24));
+
+      const month = d.getMonth() + 1;
+      const day = d.getDate();
+      const hour = String(d.getHours()).padStart(2, '0');
+      const min = String(d.getMinutes()).padStart(2, '0');
+      const dateStr = `${month}/${day} ${hour}:${min}`;
+
+      if (diff < 0) return { text: `已过期 · ${dateStr}`, cls: 'past' };
+      if (minutes <= 15) return { text: `${minutes} 分钟后 · ${dateStr}`, cls: 'urgent' };
+      if (hours <= 1) return { text: `${minutes} 分钟后 · ${dateStr}`, cls: 'urgent' };
+      if (hours <= 6) return { text: `${hours} 小时后 · ${dateStr}`, cls: 'warning' };
+      if (days === 0) return { text: `今天 ${hour}:${min}`, cls: 'normal' };
+      if (days === 1) return { text: `明天 ${hour}:${min}`, cls: 'normal' };
+      if (days <= 3) return { text: `${days} 天后 · ${dateStr}`, cls: 'normal' };
+      return { text: dateStr, cls: 'normal' };
+    }
+
+    function renderTasks(tasks) {
+      const container = document.getElementById('taskList');
+      if (!tasks.length) {
+        const isPending = currentTab === 'pending';
+        container.innerHTML = `
+          <div class="empty">
+            <div class="icon">${isPending ? '📋' : '✅'}</div>
+            <p>${isPending ? '没有待办任务' : '没有已完成的任务'}</p>
+            <p class="shortcut">${isPending ? '按 Cmd+Shift+T 快速添加' : ''}</p>
+          </div>`;
+        return;
+      }
+
+      container.innerHTML = tasks.map(t => {
+        const dl = deadlineLabel(t.deadline);
+        const isDone = !!t.completed_at;
+        return `
+          <div class="task-card ${isDone ? 'done' : ''}">
+            <div class="deadline ${dl.cls}">${isDone ? '✅ 已完成' : dl.text}</div>
+            ${t.note ? `<div class="note">${escapeHtml(t.note)}</div>` : ''}
+            <div class="content">${escapeHtml(t.content)}</div>
+            <div class="meta">
+              <span>${timeAgo(t.created_at)}</span>
+              <div class="actions">
+                ${isDone
+                  ? `<button class="btn-reopen" onclick="reopenTask('${t.id}')">恢复</button>
+                     <button class="btn-delete" onclick="deleteTask('${t.id}')">删除</button>`
+                  : `<button class="btn-done" onclick="completeTask('${t.id}')">完成</button>
+                     <button class="btn-delete" onclick="deleteTask('${t.id}')">删除</button>`}
+              </div>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    function timeAgo(iso) {
+      const diff = Date.now() - new Date(iso).getTime();
+      const mins = Math.round(diff / 60000);
+      if (mins < 1) return '刚刚';
+      if (mins < 60) return `${mins} 分钟前`;
+      const hours = Math.round(mins / 60);
+      if (hours < 24) return `${hours} 小时前`;
+      return `${Math.round(hours / 24)} 天前`;
+    }
+
+    function escapeHtml(s) {
+      return String(s || '')
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function switchTab(tab) {
+      currentTab = tab;
+      document.getElementById('tab-pending').classList.toggle('active', tab === 'pending');
+      document.getElementById('tab-done').classList.toggle('active', tab === 'done');
+      loadTasks();
+    }
+
+    async function completeTask(id) {
+      await window.api.tasks.complete(id);
+      loadTasks();
+    }
+
+    async function reopenTask(id) {
+      await window.api.tasks.reopen(id);
+      loadTasks();
+    }
+
+    async function deleteTask(id) {
+      await window.api.tasks.delete(id);
+      loadTasks();
+    }
+
+    function openQuickAdd() {
+      const { ipcRenderer } = require('electron');
+      ipcRenderer.invoke('show-main');  // keep main visible
+      // Send a message to main process to open quick-add
+      // For simplicity, we'll use the global shortcut
+    }
+
+    // Listen for new tasks added from quick-add
+    window.api.tasks.onTaskAdded(() => {
+      if (currentTab !== 'done') loadTasks();
+    });
+
+    loadTasks();
+  </script>
+</body>
+</html>

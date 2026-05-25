@@ -1,0 +1,57 @@
+{
+  "name": "tieji",
+  "version": "0.1.0",
+  "description": "贴记 — 粘贴即任务，到点就提醒",
+  "main": "dist/main/index.js",
+  "scripts": {
+    "build": "tsc && npm run copy-files",
+    "copy-files": "mkdir -p dist/renderer && cp src/renderer/*.html dist/renderer/",
+    "start": "npm run build && electron .",
+    "dev": "tsc && electron .",
+    "pack:mac": "npm run build && electron-builder --mac --arm64 --x64",
+    "pack:win": "npm run build && electron-builder --win --x64",
+    "pack:all": "npm run build && electron-builder --mac --arm64 --x64 --win --x64"
+  },
+  "build": {
+    "appId": "com.cola.tieji",
+    "productName": "贴记",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "assets/**/*",
+      "node_modules/**/*",
+      "!node_modules/**/node_modules"
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        { "target": "dmg", "arch": ["arm64", "x64"] },
+        { "target": "zip", "arch": ["arm64", "x64"] }
+      ],
+      "icon": "assets/icon.icns"
+    },
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] }
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.8",
+    "@types/node": "^20.11.0",
+    "electron": "^28.2.0",
+    "electron-builder": "^24.9.1",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "better-sqlite3": "^9.4.3",
+    "chrono-node": "^2.7.5"
+  }
+}
