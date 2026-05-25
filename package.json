@@ -1,7 +1,7 @@
 {
   "name": "tieji",
   "version": "0.1.0",
-  "description": "贴记 — 粘贴即任务，到点就提醒",
+  "description": "记住 — 粘贴即任务，到点就提醒",
   "main": "dist/main/index.js",
   "scripts": {
     "build": "tsc && npm run copy-files",
@@ -14,7 +14,7 @@
   },
   "build": {
     "appId": "com.cola.tieji",
-    "productName": "贴记",
+    "productName": "记住",
     "directories": {
       "output": "release"
     },

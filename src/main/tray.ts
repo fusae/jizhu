@@ -17,7 +17,7 @@ export function createTray(): void {
 
   tray = new Tray(icon.resize({ width: 16, height: 16 }));
   updateTrayMenu(0);
-  tray.setToolTip('贴记');
+  tray.setToolTip('记住');
 
   tray.on('click', () => showMainWindow());
   tray.on('double-click', () => showMainWindow());
@@ -25,7 +25,7 @@ export function createTray(): void {
 
 function showMainWindow(): void {
   const wins = BrowserWindow.getAllWindows();
-  const mainWin = wins.find(w => w.getTitle().includes('贴记') && !w.getTitle().includes('快速'));
+  const mainWin = wins.find(w => w.getTitle().includes('记住') && !w.getTitle().includes('快速'));
   if (mainWin) {
     mainWin.show();
     mainWin.focus();
@@ -36,7 +36,7 @@ function showMainWindow(): void {
 
 function updateTrayMenu(pending: number): void {
   if (!tray) return;
-  const title = pending > 0 ? `待办 (${pending})` : '贴记';
+  const title = pending > 0 ? `待办 (${pending})` : '记住';
   if (process.platform === 'darwin') {
     tray.setTitle(pending > 0 ? String(pending) : '');
   } else {

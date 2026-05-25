@@ -22,7 +22,7 @@ function createMainWindow(): void {
     height: 640,
     minWidth: 380,
     minHeight: 500,
-    title: '贴记',
+    title: '记住',
     webPreferences: {
       preload: join(__dirname, '..', 'preload.js'),
       contextIsolation: true,
