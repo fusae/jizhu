@@ -6,6 +6,7 @@ import {
   createTask, listPending, listCompleted,
   completeTask, reopenTask, deleteTask, updateTask,
   countPending,
+  getSetting, setSetting, getAllSettings,
 } from './db';
 import { createTray, updateTrayBadge } from './tray';
 import { startReminderLoop } from './reminder';
@@ -113,7 +114,7 @@ function registerIpc(): void {
   });
 
   ipcMain.handle('ai-parse', async (_event, text: string) => {
-    const apiKey = process.env.DEEPSEEK_API_KEY;
+    const apiKey = process.env.DEEPSEEK_API_KEY || getSetting('deepseekApiKey');
     if (!apiKey) return null;
     try {
       const resp = await fetch('https://api.deepseek.com/chat/completions', {
@@ -140,6 +141,10 @@ function registerIpc(): void {
       return null;
     }
   });
+
+  ipcMain.handle('settings:get', (_event, key: string) => getSetting(key));
+  ipcMain.handle('settings:set', (_event, key: string, value: string) => setSetting(key, value));
+  ipcMain.handle('settings:getAll', () => getAllSettings());
 
   ipcMain.handle('quick-add:close', () => {
     quickAddWindow?.close();

@@ -124,6 +124,66 @@
     .empty .icon { font-size: 48px; margin-bottom: 12px; }
     .empty p { font-size: 14px; margin-top: 4px; }
     .empty .shortcut { font-size: 12px; color: #ccc; margin-top: 8px; }
+    .settings-btn {
+      background: none;
+      border: 1px solid #d9ded4;
+      border-radius: 6px;
+      width: 32px; height: 32px;
+      font-size: 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #888;
+    }
+    .settings-btn:hover { background: #e8f5e9; color: #1f4f3a; }
+    .settings-panel {
+      padding: 20px;
+      display: none;
+    }
+    .settings-panel.show { display: block; }
+    .settings-panel h3 {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 16px;
+      color: #1f4f3a;
+    }
+    .settings-panel label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: #666;
+      margin-bottom: 4px;
+    }
+    .settings-panel input {
+      width: 100%;
+      height: 36px;
+      border: 1px solid #d9ded4;
+      border-radius: 6px;
+      padding: 0 10px;
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+      margin-bottom: 12px;
+    }
+    .settings-panel input:focus { border-color: #1f4f3a; }
+    .settings-save {
+      padding: 8px 20px;
+      border: none;
+      border-radius: 6px;
+      background: #1f4f3a;
+      color: #fff;
+      font-size: 14px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .settings-save:hover { background: #183f2e; }
+    .settings-status {
+      font-size: 12px;
+      color: #2e7d32;
+      margin-top: 8px;
+      min-height: 18px;
+    }
   </style>
 </head>
 <body>
@@ -132,11 +192,22 @@
       <h1>贴记</h1>
       <span class="count" id="pendingCount"></span>
     </div>
-    <button class="add-btn" onclick="openQuickAdd()">+ 新建</button>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <button class="settings-btn" onclick="toggleSettings()" title="设置">⚙</button>
+      <button class="add-btn" onclick="openQuickAdd()">+ 新建</button>
+    </div>
   </div>
   <div class="tabs">
     <div class="tab active" onclick="switchTab('pending')" id="tab-pending">待办</div>
     <div class="tab" onclick="switchTab('done')" id="tab-done">已完成</div>
+  </div>
+  <div class="settings-panel" id="settingsPanel">
+    <h3>设置</h3>
+    <label>DeepSeek API Key</label>
+    <input id="settingsApiKey" type="password" placeholder="sk-...">
+    <p style="font-size:11px;color:#aaa;margin:-8px 0 12px;">AI 自动解析粘贴内容需要此密钥。留空则手动填写。</p>
+    <button class="settings-save" onclick="saveSettings()">保存</button>
+    <div class="settings-status" id="settingsStatus"></div>
   </div>
   <div class="task-list" id="taskList"></div>
 
@@ -265,6 +336,31 @@
     });
 
     loadTasks();
+
+    // Settings
+    let settingsVisible = false;
+
+    async function toggleSettings() {
+      settingsVisible = !settingsVisible;
+      const panel = document.getElementById('settingsPanel');
+      const taskList = document.getElementById('taskList');
+      if (settingsVisible) {
+        panel.classList.add('show');
+        taskList.style.display = 'none';
+        const key = await window.api.settings.get('deepseekApiKey');
+        document.getElementById('settingsApiKey').value = key;
+      } else {
+        panel.classList.remove('show');
+        taskList.style.display = '';
+      }
+    }
+
+    async function saveSettings() {
+      const key = document.getElementById('settingsApiKey').value.trim();
+      await window.api.settings.set('deepseekApiKey', key);
+      document.getElementById('settingsStatus').textContent = '已保存';
+      setTimeout(() => document.getElementById('settingsStatus').textContent = '', 2000);
+    }
   </script>
 </body>
 </html>

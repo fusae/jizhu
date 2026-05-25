@@ -22,7 +22,11 @@ export function initDatabase(): void {
       notified_1h INTEGER NOT NULL DEFAULT 0,
       notified_15m INTEGER NOT NULL DEFAULT 0,
       notified_deadline INTEGER NOT NULL DEFAULT 0
-    )
+    );
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL DEFAULT ''
+    );
   `);
 }
 
@@ -111,4 +115,20 @@ export function countPending(): number {
 
 export function closeDatabase(): void {
   if (db) db.close();
+}
+
+export function getSetting(key: string): string {
+  const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key) as { value: string } | undefined;
+  return row?.value || '';
+}
+
+export function setSetting(key: string, value: string): void {
+  db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(key, value);
+}
+
+export function getAllSettings(): Record<string, string> {
+  const rows = db.prepare('SELECT key, value FROM settings').all() as { key: string; value: string }[];
+  const result: Record<string, string> = {};
+  for (const row of rows) result[row.key] = row.value;
+  return result;
 }

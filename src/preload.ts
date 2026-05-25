@@ -16,8 +16,11 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.on('task:added', (_event, task) => callback(task));
     },
   },
-  parseDeadline: (text: string) => ipcRenderer.invoke('parse-deadline', text),
-  aiParse: (text: string) => ipcRenderer.invoke('ai-parse', text),
+  settings: {
+    get: (key: string) => ipcRenderer.invoke('settings:get', key),
+    set: (key: string, value: string) => ipcRenderer.invoke('settings:set', key, value),
+    getAll: () => ipcRenderer.invoke('settings:getAll'),
+  },
   clipboard: {
     read: () => ipcRenderer.invoke('clipboard:read'),
   },
