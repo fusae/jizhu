@@ -1,5 +1,5 @@
 {
-  "name": "tieji",
+  "name": "jizhu",
   "version": "0.1.0",
   "description": "记住 — 粘贴即任务，到点就提醒",
   "main": "dist/main/index.js",
@@ -13,7 +13,7 @@
     "pack:all": "npm run build && electron-builder --mac --arm64 --x64 --win --x64"
   },
   "build": {
-    "appId": "com.cola.tieji",
+    "appId": "com.cola.jizhu",
     "productName": "记住",
     "directories": {
       "output": "release"
