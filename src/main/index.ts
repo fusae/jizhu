@@ -1,4 +1,5 @@
-import { app, BrowserWindow, globalShortcut, ipcMain, Notification } from 'electron';
+import { app, BrowserWindow, dialog, globalShortcut, ipcMain, Notification, shell } from 'electron';
+import type { OpenDialogOptions } from 'electron';
 import { join } from 'path';
 import * as chrono from 'chrono-node';
 import { autoUpdater } from 'electron-updater';
@@ -71,7 +72,7 @@ function createQuickAddWindow(): void {
 
   quickAddWindow = new BrowserWindow({
     width: 440,
-    height: 340,
+    height: 430,
     resizable: false,
     frame: false,
     alwaysOnTop: true,
@@ -199,7 +200,7 @@ function registerIpc(): void {
     deleteTask(id);
     updateTrayBadge(countPending());
   });
-  ipcMain.handle('tasks:update', (_event, id: string, data: { note?: string; deadline?: string }) => {
+  ipcMain.handle('tasks:update', (_event, id: string, data: { note?: string; deadline?: string; attachments?: string[] }) => {
     updateTask(id, data);
   });
   ipcMain.handle('tasks:count-pending', () => countPending());
@@ -257,6 +258,19 @@ function registerIpc(): void {
   ipcMain.handle('settings:getAll', () => getAllSettings());
 
   ipcMain.handle('app:get-version', () => app.getVersion());
+  ipcMain.handle('attachments:select-files', async () => {
+    const options: OpenDialogOptions = { properties: ['openFile', 'multiSelections'] };
+    const parent = quickAddWindow || mainWindow;
+    const result = parent
+      ? await dialog.showOpenDialog(parent, options)
+      : await dialog.showOpenDialog(options);
+    return result.canceled ? [] : result.filePaths;
+  });
+  ipcMain.handle('attachments:open', async (_event, filePath: string) => {
+    if (!filePath) return '文件不存在';
+    const error = await shell.openPath(filePath);
+    return error || null;
+  });
   ipcMain.handle('updates:get-status', () => updateStatus);
   ipcMain.handle('updates:check', async () => {
     if (!app.isPackaged) {

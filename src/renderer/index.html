@@ -97,6 +97,27 @@
       font-size: 11px;
       color: #aaa;
     }
+    .attachments {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .attachment-btn {
+      max-width: 180px;
+      padding: 4px 8px;
+      border: none;
+      border-radius: 4px;
+      background: #eef2ea;
+      color: #1f4f3a;
+      font-size: 12px;
+      cursor: pointer;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      text-align: left;
+    }
+    .attachment-btn:hover { background: #dfe8dc; }
     .task-card .actions {
       display: flex;
       gap: 8px;
@@ -322,6 +343,7 @@
             <div class="deadline ${dl.cls}">${isDone ? '✅ 已完成' : dl.text}</div>
             ${t.note ? `<div class="note">${escapeHtml(t.note)}</div>` : ''}
             <div class="content">${escapeHtml(t.content)}</div>
+            ${renderAttachments(t.attachments)}
             <div class="meta">
               <span>${timeAgo(t.created_at)}</span>
               <div class="actions">
@@ -334,6 +356,18 @@
             </div>
           </div>`;
       }).join('');
+    }
+
+    function renderAttachments(attachments) {
+      if (!attachments || attachments.length === 0) return '';
+      return `<div class="attachments">${attachments.map((file) =>
+        `<button class="attachment-btn" data-path="${escapeHtml(file.path)}" onclick="openAttachment(this)" title="${escapeHtml(file.path)}">📎 ${escapeHtml(file.name)}</button>`
+      ).join('')}</div>`;
+    }
+
+    async function openAttachment(button) {
+      const error = await window.api.attachments.open(button.dataset.path);
+      if (error) alert(error);
     }
 
     function timeAgo(iso) {

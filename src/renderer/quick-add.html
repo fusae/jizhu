@@ -102,6 +102,54 @@
       margin-top: 6px;
       min-height: 16px;
     }
+    .file-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 6px;
+    }
+    .file-btn {
+      padding: 5px 12px;
+      border-radius: 4px;
+      border: 1px solid #d9ded4;
+      background: #fff;
+      font-size: 12px;
+      cursor: pointer;
+      font-weight: 500;
+    }
+    .file-btn:hover { background: #e8f5e9; border-color: #1f4f3a; }
+    .file-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 6px;
+      max-height: 54px;
+      overflow: auto;
+    }
+    .file-chip {
+      max-width: 180px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      background: #eef2ea;
+      color: #1f4f3a;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .file-chip span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .file-chip button {
+      border: none;
+      background: none;
+      color: #888;
+      cursor: pointer;
+      font-size: 13px;
+      line-height: 1;
+    }
     .ai-hint {
       font-size: 12px;
       color: #1f4f3a;
@@ -132,6 +180,13 @@
       </div>
     </div>
     <div class="preview" id="preview"></div>
+    <div class="field">
+      <label>附件（可选）</label>
+      <div class="file-actions">
+        <button class="file-btn" onclick="selectFiles()">添加文件</button>
+      </div>
+      <div class="file-list" id="fileList"></div>
+    </div>
     <div class="actions">
       <button class="btn btn-secondary" onclick="closeWindow()">取消</button>
       <button class="btn btn-primary" onclick="submitTask()">保存</button>
@@ -141,6 +196,7 @@
   <script>
     let aiParsing = false;
     let debounceTimer = null;
+    let selectedAttachments = [];
 
     (async () => {
       const text = await window.api.clipboard.read();
@@ -242,7 +298,38 @@
         deadline = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
       }
 
-      await window.api.window.submitQuickAdd({ content, note, deadline });
+      await window.api.window.submitQuickAdd({ content, note, deadline, attachments: selectedAttachments });
+    }
+
+    async function selectFiles() {
+      const paths = await window.api.attachments.selectFiles();
+      addAttachments(paths);
+    }
+
+    function addAttachments(paths) {
+      for (const path of paths || []) {
+        if (path && !selectedAttachments.includes(path)) selectedAttachments.push(path);
+      }
+      renderFiles();
+    }
+
+    function removeAttachment(index) {
+      selectedAttachments.splice(index, 1);
+      renderFiles();
+    }
+
+    function renderFiles() {
+      const list = document.getElementById('fileList');
+      list.innerHTML = selectedAttachments.map((path, index) => {
+        const name = path.split(/[\\/]/).pop() || path;
+        return `<div class="file-chip" title="${escapeHtml(path)}"><span>${escapeHtml(name)}</span><button onclick="removeAttachment(${index})">×</button></div>`;
+      }).join('');
+    }
+
+    function escapeHtml(s) {
+      return String(s || '')
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
     function closeWindow() {
@@ -257,6 +344,15 @@
       if (e.key === 'Escape') {
         closeWindow();
       }
+    });
+
+    document.addEventListener('dragover', (e) => {
+      e.preventDefault();
+    });
+
+    document.addEventListener('drop', (e) => {
+      e.preventDefault();
+      addAttachments(Array.from(e.dataTransfer.files || []).map((file) => file.path).filter(Boolean));
     });
   </script>
 </body>
