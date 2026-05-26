@@ -213,6 +213,7 @@
 
   <script>
     let currentTab = 'pending';
+    let settingsVisible = false;
 
     async function loadTasks() {
       const pending = await window.api.tasks.listPending();
@@ -333,10 +334,11 @@
     });
 
     loadTasks();
+    setInterval(() => {
+      if (!settingsVisible) loadTasks();
+    }, 30_000);
 
     // Settings
-    let settingsVisible = false;
-
     async function toggleSettings() {
       settingsVisible = !settingsVisible;
       const panel = document.getElementById('settingsPanel');
