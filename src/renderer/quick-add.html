@@ -140,6 +140,7 @@
 
   <script>
     let aiParsing = false;
+    let debounceTimer = null;
 
     (async () => {
       const text = await window.api.clipboard.read();
@@ -156,26 +157,51 @@
       hint.textContent = 'AI 识别中...';
       hint.className = 'ai-hint loading';
 
-      const result = await window.api.aiParse(text);
-      if (result && (result.note || result.deadline)) {
-        if (result.note) document.getElementById('note').value = result.note;
-        if (result.deadline) {
-          document.getElementById('deadline').value = result.deadline;
-          updatePreview();
+      try {
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('timeout')), 12000)
+        );
+        const result = await Promise.race([
+          window.api.aiParse(text),
+          timeoutPromise
+        ]);
+
+        if (result && (result.note || result.deadline)) {
+          if (result.note) document.getElementById('note').value = result.note;
+          if (result.deadline) {
+            document.getElementById('deadline').value = result.deadline;
+            updatePreview();
+          }
+          hint.textContent = 'AI 已自动填写，确认或修改即可';
+          hint.className = 'ai-hint';
+        } else {
+          hint.textContent = '';
+          hint.className = 'ai-hint';
         }
-        hint.textContent = 'AI 已自动填写，确认或修改即可';
+      } catch (err) {
+        console.error('AI parse error:', err);
+        hint.textContent = 'AI 识别失败，请手动填写';
         hint.className = 'ai-hint';
-      } else {
-        hint.textContent = '';
-        hint.className = 'ai-hint';
+        setTimeout(() => {
+          hint.textContent = '';
+        }, 3000);
       }
       aiParsing = false;
     }
 
     document.getElementById('content').addEventListener('input', function() {
-      if (!aiParsing && this.value.length > 20) {
-        runAiParse(this.value);
-      }
+      const text = this.value;
+      if (text.length < 10) return;
+
+      // 清除之前的定时器
+      if (debounceTimer) clearTimeout(debounceTimer);
+
+      // 2秒后自动重新识别
+      debounceTimer = setTimeout(() => {
+        if (!aiParsing) {
+          runAiParse(text);
+        }
+      }, 2000);
     });
 
     function setQuick(time) {

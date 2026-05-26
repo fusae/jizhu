@@ -324,10 +324,7 @@
     }
 
     function openQuickAdd() {
-      const { ipcRenderer } = require('electron');
-      ipcRenderer.invoke('show-main');  // keep main visible
-      // Send a message to main process to open quick-add
-      // For simplicity, we'll use the global shortcut
+      window.api.window.openQuickAdd();
     }
 
     // Listen for new tasks added from quick-add

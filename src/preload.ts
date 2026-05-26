@@ -24,8 +24,11 @@ contextBridge.exposeInMainWorld('api', {
   clipboard: {
     read: () => ipcRenderer.invoke('clipboard:read'),
   },
+  aiParse: (text: string) => ipcRenderer.invoke('ai-parse', text),
+  parseDeadline: (text: string) => ipcRenderer.invoke('parse-deadline', text),
   window: {
     showMain: () => ipcRenderer.invoke('show-main'),
+    openQuickAdd: () => ipcRenderer.invoke('open-quick-add'),
     closeQuickAdd: () => ipcRenderer.invoke('quick-add:close'),
     submitQuickAdd: (data: { content: string; note: string; deadline: string }) =>
       ipcRenderer.invoke('quick-add:submit', data),

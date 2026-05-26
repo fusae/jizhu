@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Generate app icon for tieji — green rounded rect with 'T' mark."""
+from pathlib import Path
 import struct, zlib
 
 def png_chunk(ctype, data):
@@ -7,11 +8,13 @@ def png_chunk(ctype, data):
     return struct.pack('>I', len(data)) + c + struct.pack('>I', zlib.crc32(c) & 0xffffffff)
 
 def create_icon(size, br, bg, bb):
-    raw = b''
+    rows = []
     for y in range(size):
-        raw += b'\x00'  # filter byte
+        row = bytearray(b'\x00')  # filter byte
         for x in range(size):
-            raw += pixel(x, y, size, br, bg, bb)
+            row.extend(pixel(x, y, size, br, bg, bb))
+        rows.append(bytes(row))
+    raw = b''.join(rows)
 
     header = b'\x89PNG\r\n\x1a\n'
     ihdr = png_chunk(b'IHDR', struct.pack('>IIBBBBB', size, size, 8, 2, 0, 0, 0))
@@ -50,26 +53,34 @@ def pixel(x, y, s, br, bg, bb):
 
     return bytes([br, bg, bb])
 
+def create_ico(png_data):
+    header = struct.pack('<HHH', 0, 1, 1)
+    directory = struct.pack('<BBBBHHII', 0, 0, 0, 0, 1, 32, len(png_data), 22)
+    return header + directory + png_data
+
 # Generate all sizes
-assets = '/Users/jamesyu/Projects/task-reminder/assets'
+assets = Path(__file__).resolve().parents[1] / 'assets'
 for size in [1024, 512, 256, 128, 64, 32, 16]:
     png = create_icon(size, 31, 79, 58)
-    with open(f'{assets}/icon-{size}.png', 'wb') as f:
+    with open(assets / f'icon-{size}.png', 'wb') as f:
         f.write(png)
 
 # Main icon (1024)
 import shutil
-shutil.copy(f'{assets}/icon-1024.png', f'{assets}/icon.png')
+shutil.copy(assets / 'icon-1024.png', assets / 'icon.png')
 
 # Tray icons
 png16 = create_icon(16, 31, 79, 58)
-with open(f'{assets}/tray-icon.png', 'wb') as f:
+with open(assets / 'tray-icon.png', 'wb') as f:
     f.write(png16)
 png16t = create_icon(16, 0, 0, 0)
-with open(f'{assets}/tray-iconTemplate.png', 'wb') as f:
+with open(assets / 'tray-iconTemplate.png', 'wb') as f:
     f.write(png16t)
 
-# Windows ICO (256x256 PNG)
-shutil.copy(f'{assets}/icon-256.png', f'{assets}/icon.ico')
+# Windows ICO (256x256 PNG payload in ICO container)
+with open(assets / 'icon-256.png', 'rb') as f:
+    png256 = f.read()
+with open(assets / 'icon.ico', 'wb') as f:
+    f.write(create_ico(png256))
 
 print('All icons generated')
