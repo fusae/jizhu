@@ -25,26 +25,30 @@ function checkReminders(): void {
     const diffMin = Math.round(diffMs / 60_000);
 
     if (diffMs <= 0 && !task.notified_deadline) {
-      sendNotification(task, '已到截止时间', `"${task.note || task.content.slice(0, 40)}" 的截止时间已到。`);
-      updateTask(task.id, { notified_deadline: true });
+      if (sendNotification(task, '已到截止时间', `"${task.note || task.content.slice(0, 40)}" 的截止时间已到。`)) {
+        updateTask(task.id, { notified_deadline: true });
+      }
     } else if (diffMin <= 15 && diffMin > 0 && !task.notified_15m) {
-      sendNotification(task, '15 分钟后截止', `"${task.note || task.content.slice(0, 40)}" 还有 15 分钟截止。`);
-      updateTask(task.id, { notified_15m: true });
+      if (sendNotification(task, '15 分钟后截止', `"${task.note || task.content.slice(0, 40)}" 还有 15 分钟截止。`)) {
+        updateTask(task.id, { notified_15m: true });
+      }
     } else if (diffMin <= 60 && diffMin > 15 && !task.notified_1h) {
-      sendNotification(task, '1 小时后截止', `"${task.note || task.content.slice(0, 40)}" 还有约 1 小时截止。`);
-      updateTask(task.id, { notified_1h: true });
+      if (sendNotification(task, '1 小时后截止', `"${task.note || task.content.slice(0, 40)}" 还有约 1 小时截止。`)) {
+        updateTask(task.id, { notified_1h: true });
+      }
     }
   }
 }
 
-function sendNotification(task: Task, title: string, body: string): void {
-  if (!Notification.isSupported()) return;
+function sendNotification(task: Task, title: string, body: string): boolean {
+  if (!Notification.isSupported()) return false;
 
   const notification = new Notification({
     title,
     body,
     silent: false,
     urgency: 'critical',
+    timeoutType: 'never',
     closeButtonText: '知道了',
   });
 
@@ -54,4 +58,5 @@ function sendNotification(task: Task, title: string, body: string): void {
   });
 
   notification.show();
+  return true;
 }

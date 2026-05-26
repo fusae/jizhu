@@ -31,6 +31,10 @@ let updateStatus: UpdateStatus = {
   currentVersion: app.getVersion(),
 };
 
+if (process.platform === 'win32') {
+  app.setAppUserModelId('com.cola.jizhu');
+}
+
 function createMainWindow(): void {
   mainWindow = new BrowserWindow({
     width: 480,
