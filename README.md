@@ -8,13 +8,13 @@
 
 ### macOS
 
-下载 [最新 DMG](https://github.com/fusae/tieji/releases) 安装。
+下载 [最新 DMG](https://github.com/fusae/jizhu/releases) 安装。
 
 ### 从源码运行
 
 ```bash
-git clone https://github.com/fusae/tieji.git
-cd tieji
+git clone https://github.com/fusae/jizhu.git
+cd jizhu
 npm install
 DEEPSEEK_API_KEY=sk-xxx npm start
 ```
