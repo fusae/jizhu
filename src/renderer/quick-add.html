@@ -102,22 +102,24 @@
       margin-top: 6px;
       min-height: 16px;
     }
-    .file-actions {
+    .drop-zone {
+      min-height: 44px;
+      border: 1px dashed #cbd5c7;
+      border-radius: 6px;
+      background: #fff;
+      color: #888;
+      font-size: 12px;
       display: flex;
       align-items: center;
-      gap: 8px;
+      justify-content: center;
       margin-top: 6px;
+      transition: background .15s, border-color .15s, color .15s;
     }
-    .file-btn {
-      padding: 5px 12px;
-      border-radius: 4px;
-      border: 1px solid #d9ded4;
-      background: #fff;
-      font-size: 12px;
-      cursor: pointer;
-      font-weight: 500;
+    .drop-zone.dragging {
+      background: #e8f5e9;
+      border-color: #1f4f3a;
+      color: #1f4f3a;
     }
-    .file-btn:hover { background: #e8f5e9; border-color: #1f4f3a; }
     .file-list {
       display: flex;
       flex-wrap: wrap;
@@ -182,9 +184,7 @@
     <div class="preview" id="preview"></div>
     <div class="field">
       <label>附件（可选）</label>
-      <div class="file-actions">
-        <button class="file-btn" onclick="selectFiles()">添加文件</button>
-      </div>
+      <div class="drop-zone" id="dropZone">把文件拖到这里</div>
       <div class="file-list" id="fileList"></div>
     </div>
     <div class="actions">
@@ -301,11 +301,6 @@
       await window.api.window.submitQuickAdd({ content, note, deadline, attachments: selectedAttachments });
     }
 
-    async function selectFiles() {
-      const paths = await window.api.attachments.selectFiles();
-      addAttachments(paths);
-    }
-
     function addAttachments(paths) {
       for (const path of paths || []) {
         if (path && !selectedAttachments.includes(path)) selectedAttachments.push(path);
@@ -348,10 +343,18 @@
 
     document.addEventListener('dragover', (e) => {
       e.preventDefault();
+      document.getElementById('dropZone').classList.add('dragging');
+    });
+
+    document.addEventListener('dragleave', (e) => {
+      if (e.clientX <= 0 || e.clientY <= 0 || e.clientX >= window.innerWidth || e.clientY >= window.innerHeight) {
+        document.getElementById('dropZone').classList.remove('dragging');
+      }
     });
 
     document.addEventListener('drop', (e) => {
       e.preventDefault();
+      document.getElementById('dropZone').classList.remove('dragging');
       addAttachments(Array.from(e.dataTransfer.files || []).map((file) => file.path).filter(Boolean));
     });
   </script>
