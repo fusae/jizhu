@@ -123,30 +123,35 @@ export function listDueForReminder(): Task[] {
   const now = new Date();
   const in1h = new Date(now.getTime() + 60 * 60 * 1000);
   const in15m = new Date(now.getTime() + 15 * 60 * 1000);
+  const rows = db.prepare(
+    'SELECT * FROM tasks WHERE completed_at IS NULL ORDER BY deadline ASC'
+  ).all();
 
-  return db.prepare(`
-    SELECT * FROM tasks
-    WHERE completed_at IS NULL
-      AND (
-        (datetime(deadline) <= datetime(?) AND notified_deadline = 0)
-        OR (datetime(deadline) <= datetime(?) AND notified_15m = 0)
-        OR (datetime(deadline) <= datetime(?) AND notified_1h = 0)
-      )
-  `).all(
-    now.toISOString(),
-    in15m.toISOString(),
-    in1h.toISOString()
-  ) as Task[];
+  return rows
+    .map(normalizeTask)
+    .filter((task) => {
+      const deadlineTs = new Date(task.deadline).getTime();
+      if (Number.isNaN(deadlineTs)) return false;
+      if (deadlineTs <= now.getTime() && !task.notified_deadline) return true;
+      if (deadlineTs <= in15m.getTime() && !task.notified_15m) return true;
+      if (deadlineTs <= in1h.getTime() && !task.notified_1h) return true;
+      return false;
+    });
 }
 
 export function updateTask(id: string, data: TaskUpdate): Task | undefined {
   const sets: string[] = [];
   const values: unknown[] = [];
+  const shouldResetReminderFlags = data.deadline !== undefined;
 
   if (data.note !== undefined) { sets.push('note = ?'); values.push(data.note); }
   if (data.deadline !== undefined) { sets.push('deadline = ?'); values.push(data.deadline); }
   if (data.attachments !== undefined) { sets.push('attachments = ?'); values.push(JSON.stringify(copyAttachments(id, data.attachments))); }
   if (data.completed_at !== undefined) { sets.push('completed_at = ?'); values.push(data.completed_at); }
+  if (shouldResetReminderFlags) {
+    sets.push('notified_1h = ?', 'notified_15m = ?', 'notified_deadline = ?');
+    values.push(0, 0, 0);
+  }
   if (data.notified_1h !== undefined) { sets.push('notified_1h = ?'); values.push(data.notified_1h ? 1 : 0); }
   if (data.notified_15m !== undefined) { sets.push('notified_15m = ?'); values.push(data.notified_15m ? 1 : 0); }
   if (data.notified_deadline !== undefined) { sets.push('notified_deadline = ?'); values.push(data.notified_deadline ? 1 : 0); }

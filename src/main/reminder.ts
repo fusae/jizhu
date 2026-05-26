@@ -5,6 +5,8 @@ import type { Task } from '../shared/types';
 let intervalId: ReturnType<typeof setInterval> | null = null;
 
 export function startReminderLoop(): void {
+  checkReminders();
+  if (intervalId) clearInterval(intervalId);
   intervalId = setInterval(checkReminders, 30_000);
 }
 
@@ -17,10 +19,11 @@ export function stopReminderLoop(): void {
 
 function checkReminders(): void {
   const tasks = listDueForReminder();
+  const now = new Date();
 
   for (const task of tasks) {
-    const now = new Date();
     const deadline = new Date(task.deadline);
+    if (Number.isNaN(deadline.getTime())) continue;
     const diffMs = deadline.getTime() - now.getTime();
     const diffMin = Math.round(diffMs / 60_000);
 
