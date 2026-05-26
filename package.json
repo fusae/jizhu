@@ -1,6 +1,6 @@
 {
   "name": "jizhu",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "记住 — 粘贴即任务，到点就提醒",
   "main": "dist/main/index.js",
   "scripts": {
@@ -27,14 +27,31 @@
     "mac": {
       "category": "public.app-category.productivity",
       "target": [
-        { "target": "dmg", "arch": ["arm64", "x64"] },
-        { "target": "zip", "arch": ["arm64", "x64"] }
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
       ],
       "icon": "assets/icon.icns"
     },
     "win": {
       "target": [
-        { "target": "nsis", "arch": ["x64"] }
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
       "icon": "assets/icon.ico"
     },
