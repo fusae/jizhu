@@ -184,6 +184,41 @@
       margin-top: 8px;
       min-height: 18px;
     }
+    .update-box {
+      margin-top: 20px;
+      padding-top: 16px;
+      border-top: 1px solid #e5e5dc;
+    }
+    .update-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 10px;
+      font-size: 13px;
+      color: #666;
+    }
+    .update-row strong { color: #1a1a1a; font-weight: 600; }
+    .update-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .update-actions button {
+      padding: 7px 14px;
+      border: none;
+      border-radius: 6px;
+      background: #1f4f3a;
+      color: #fff;
+      font-size: 13px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .update-actions button:disabled {
+      background: #d9ded4;
+      color: #888;
+      cursor: default;
+    }
   </style>
 </head>
 <body>
@@ -208,6 +243,21 @@
     <p style="font-size:11px;color:#aaa;margin:-8px 0 12px;">AI 自动解析粘贴内容需要此密钥。留空则手动填写。</p>
     <button class="settings-save" onclick="saveSettings()">保存</button>
     <div class="settings-status" id="settingsStatus"></div>
+    <div class="update-box">
+      <div class="update-row">
+        <span>当前版本</span>
+        <strong id="currentVersion">-</strong>
+      </div>
+      <div class="update-row">
+        <span>更新</span>
+        <strong id="updateStatus">未检查</strong>
+      </div>
+      <div class="update-actions">
+        <button id="checkUpdateBtn" onclick="checkForUpdates()">检查更新</button>
+        <button id="downloadUpdateBtn" onclick="downloadUpdate()" style="display:none;">下载更新</button>
+        <button id="installUpdateBtn" onclick="installUpdate()" style="display:none;">重启安装</button>
+      </div>
+    </div>
   </div>
   <div class="task-list" id="taskList"></div>
 
@@ -348,6 +398,7 @@
         taskList.style.display = 'none';
         const key = await window.api.settings.get('deepseekApiKey');
         document.getElementById('settingsApiKey').value = key;
+        loadUpdateStatus();
       } else {
         panel.classList.remove('show');
         taskList.style.display = '';
@@ -360,6 +411,46 @@
       document.getElementById('settingsStatus').textContent = '已保存';
       setTimeout(() => document.getElementById('settingsStatus').textContent = '', 2000);
     }
+
+    async function loadUpdateStatus() {
+      document.getElementById('currentVersion').textContent = await window.api.app.getVersion();
+      renderUpdateStatus(await window.api.updates.getStatus());
+    }
+
+    function renderUpdateStatus(state) {
+      const status = document.getElementById('updateStatus');
+      const checkBtn = document.getElementById('checkUpdateBtn');
+      const downloadBtn = document.getElementById('downloadUpdateBtn');
+      const installBtn = document.getElementById('installUpdateBtn');
+
+      checkBtn.disabled = state.status === 'checking' || state.status === 'downloading';
+      downloadBtn.style.display = state.status === 'available' ? '' : 'none';
+      installBtn.style.display = state.status === 'downloaded' ? '' : 'none';
+
+      if (state.status === 'idle') status.textContent = '未检查';
+      else if (state.status === 'checking') status.textContent = '正在检查...';
+      else if (state.status === 'available') status.textContent = `发现 ${state.latestVersion}`;
+      else if (state.status === 'not-available') status.textContent = '已是最新';
+      else if (state.status === 'downloading') status.textContent = state.message || '正在下载...';
+      else if (state.status === 'downloaded') status.textContent = '已下载，等待安装';
+      else status.textContent = state.message || '检查失败';
+    }
+
+    async function checkForUpdates() {
+      renderUpdateStatus({ status: 'checking' });
+      renderUpdateStatus(await window.api.updates.check());
+    }
+
+    async function downloadUpdate() {
+      renderUpdateStatus({ status: 'downloading', message: '正在下载...' });
+      await window.api.updates.download();
+    }
+
+    function installUpdate() {
+      window.api.updates.install();
+    }
+
+    window.api.updates.onStatus(renderUpdateStatus);
   </script>
 </body>
 </html>

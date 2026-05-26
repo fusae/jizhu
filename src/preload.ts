@@ -21,6 +21,18 @@ contextBridge.exposeInMainWorld('api', {
     set: (key: string, value: string) => ipcRenderer.invoke('settings:set', key, value),
     getAll: () => ipcRenderer.invoke('settings:getAll'),
   },
+  app: {
+    getVersion: () => ipcRenderer.invoke('app:get-version'),
+  },
+  updates: {
+    getStatus: () => ipcRenderer.invoke('updates:get-status'),
+    check: () => ipcRenderer.invoke('updates:check'),
+    download: () => ipcRenderer.invoke('updates:download'),
+    install: () => ipcRenderer.invoke('updates:install'),
+    onStatus: (callback: (status: any) => void) => {
+      ipcRenderer.on('updates:status', (_event, status) => callback(status));
+    },
+  },
   clipboard: {
     read: () => ipcRenderer.invoke('clipboard:read'),
   },

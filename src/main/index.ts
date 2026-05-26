@@ -1,6 +1,7 @@
 import { app, BrowserWindow, globalShortcut, ipcMain, Notification } from 'electron';
 import { join } from 'path';
 import * as chrono from 'chrono-node';
+import { autoUpdater } from 'electron-updater';
 import {
   initDatabase, closeDatabase,
   createTask, listPending, listCompleted,
@@ -15,6 +16,19 @@ import type { TaskCreate } from '../shared/types';
 let isQuitting = false;
 let mainWindow: BrowserWindow | null = null;
 let quickAddWindow: BrowserWindow | null = null;
+
+type UpdateStatus = {
+  status: 'idle' | 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error';
+  currentVersion: string;
+  latestVersion?: string;
+  percent?: number;
+  message?: string;
+};
+
+let updateStatus: UpdateStatus = {
+  status: 'idle',
+  currentVersion: app.getVersion(),
+};
 
 function createMainWindow(): void {
   mainWindow = new BrowserWindow({
@@ -103,6 +117,70 @@ function formatDeadlineInput(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${time}`;
 }
 
+function emitUpdateStatus(): void {
+  mainWindow?.webContents.send('updates:status', updateStatus);
+}
+
+function configureAutoUpdater(): void {
+  autoUpdater.autoDownload = false;
+  autoUpdater.autoInstallOnAppQuit = false;
+
+  autoUpdater.on('checking-for-update', () => {
+    updateStatus = { status: 'checking', currentVersion: app.getVersion() };
+    emitUpdateStatus();
+  });
+
+  autoUpdater.on('update-available', (info) => {
+    updateStatus = {
+      status: 'available',
+      currentVersion: app.getVersion(),
+      latestVersion: info.version,
+      message: `发现新版本 ${info.version}`,
+    };
+    emitUpdateStatus();
+  });
+
+  autoUpdater.on('update-not-available', (info) => {
+    updateStatus = {
+      status: 'not-available',
+      currentVersion: app.getVersion(),
+      latestVersion: info.version,
+      message: '当前已是最新版本',
+    };
+    emitUpdateStatus();
+  });
+
+  autoUpdater.on('download-progress', (progress) => {
+    updateStatus = {
+      ...updateStatus,
+      status: 'downloading',
+      percent: Math.round(progress.percent),
+      message: `正在下载 ${Math.round(progress.percent)}%`,
+    };
+    emitUpdateStatus();
+  });
+
+  autoUpdater.on('update-downloaded', (info) => {
+    updateStatus = {
+      status: 'downloaded',
+      currentVersion: app.getVersion(),
+      latestVersion: info.version,
+      percent: 100,
+      message: '更新已下载，重启后安装',
+    };
+    emitUpdateStatus();
+  });
+
+  autoUpdater.on('error', (err) => {
+    updateStatus = {
+      status: 'error',
+      currentVersion: app.getVersion(),
+      message: err.message || '检查更新失败',
+    };
+    emitUpdateStatus();
+  });
+}
+
 function registerIpc(): void {
   ipcMain.handle('tasks:list-pending', () => listPending());
   ipcMain.handle('tasks:list-completed', () => listCompleted());
@@ -178,6 +256,30 @@ function registerIpc(): void {
   ipcMain.handle('settings:set', (_event, key: string, value: string) => setSetting(key, value));
   ipcMain.handle('settings:getAll', () => getAllSettings());
 
+  ipcMain.handle('app:get-version', () => app.getVersion());
+  ipcMain.handle('updates:get-status', () => updateStatus);
+  ipcMain.handle('updates:check', async () => {
+    if (!app.isPackaged) {
+      updateStatus = {
+        status: 'error',
+        currentVersion: app.getVersion(),
+        message: '开发模式不支持自动更新检查',
+      };
+      emitUpdateStatus();
+      return updateStatus;
+    }
+    await autoUpdater.checkForUpdates();
+    return updateStatus;
+  });
+  ipcMain.handle('updates:download', async () => {
+    await autoUpdater.downloadUpdate();
+    return updateStatus;
+  });
+  ipcMain.handle('updates:install', () => {
+    isQuitting = true;
+    autoUpdater.quitAndInstall(false, true);
+  });
+
   ipcMain.handle('quick-add:close', () => {
     quickAddWindow?.close();
   });
@@ -216,6 +318,7 @@ app.whenReady().then(() => {
   initDatabase();
   createMainWindow();
   createTray();
+  configureAutoUpdater();
   registerShortcuts();
   registerIpc();
   startReminderLoop();
