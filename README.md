@@ -32,6 +32,17 @@ DEEPSEEK_API_KEY=sk-xxx npm start
 
 设置环境变量 `DEEPSEEK_API_KEY` 启用 AI 自动解析。未配置时不影响手动填写。
 
+## Windows 通知
+
+如果任务到期但没有弹出提醒，先检查 Windows 系统通知是否开启：
+
+1. 打开 Windows 设置
+2. 进入「系统」→「通知」
+3. 打开「通知」总开关
+4. 如果列表里有「记住」，也打开它的通知开关
+
+如果系统通知被关闭，记住会正常触发提醒逻辑，但 Windows 不会展示弹窗。
+
 ## 技术
 
 - Electron + TypeScript
