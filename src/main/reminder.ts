@@ -1,10 +1,12 @@
 import { Notification } from 'electron';
-import { listDueForReminder, updateTask, listPending } from './db';
+import { listDueForReminder, updateTask } from './db';
 import type { Task } from '../shared/types';
 
 let intervalId: ReturnType<typeof setInterval> | null = null;
 
 export function startReminderLoop(): void {
+  checkReminders();
+  if (intervalId) clearInterval(intervalId);
   intervalId = setInterval(checkReminders, 30_000);
 }
 
@@ -17,10 +19,11 @@ export function stopReminderLoop(): void {
 
 function checkReminders(): void {
   const tasks = listDueForReminder();
+  const now = new Date();
 
   for (const task of tasks) {
-    const now = new Date();
     const deadline = new Date(task.deadline);
+    if (Number.isNaN(deadline.getTime())) continue;
     const diffMs = deadline.getTime() - now.getTime();
     const diffMin = Math.round(diffMs / 60_000);
 
@@ -29,15 +32,30 @@ function checkReminders(): void {
         updateTask(task.id, { notified_deadline: true });
       }
     } else if (diffMin <= 15 && diffMin > 0 && !task.notified_15m) {
+      if (!wasCreatedBeforeReminderWindow(task, 15)) {
+        updateTask(task.id, { notified_15m: true });
+        continue;
+      }
       if (sendNotification(task, '15 分钟后截止', `"${task.note || task.content.slice(0, 40)}" 还有 15 分钟截止。`)) {
         updateTask(task.id, { notified_15m: true });
       }
     } else if (diffMin <= 60 && diffMin > 15 && !task.notified_1h) {
+      if (!wasCreatedBeforeReminderWindow(task, 60)) {
+        updateTask(task.id, { notified_1h: true });
+        continue;
+      }
       if (sendNotification(task, '1 小时后截止', `"${task.note || task.content.slice(0, 40)}" 还有约 1 小时截止。`)) {
         updateTask(task.id, { notified_1h: true });
       }
     }
   }
+}
+
+function wasCreatedBeforeReminderWindow(task: Task, minutesBeforeDeadline: number): boolean {
+  const createdAt = new Date(task.created_at).getTime();
+  const deadline = new Date(task.deadline).getTime();
+  if (!Number.isFinite(createdAt) || !Number.isFinite(deadline)) return true;
+  return createdAt <= deadline - minutesBeforeDeadline * 60_000;
 }
 
 function sendNotification(task: Task, title: string, body: string): boolean {
