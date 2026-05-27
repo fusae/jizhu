@@ -136,6 +136,50 @@
     .btn-delete:hover { background: #ffccbc; }
     .btn-reopen { background: #e3f2fd; color: #1565c0; }
     .btn-reopen:hover { background: #bbdefb; }
+    .btn-edit { background: #f0f0e8; color: #555; }
+    .btn-edit:hover { background: #e0e0d8; }
+    .edit-form {
+      display: grid;
+      gap: 8px;
+    }
+    .edit-form label {
+      font-size: 11px;
+      color: #888;
+      font-weight: 600;
+    }
+    .edit-form textarea,
+    .edit-form input {
+      width: 100%;
+      border: 1px solid #d9ded4;
+      border-radius: 6px;
+      padding: 8px;
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+      background: #fff;
+      color: #1a1a1a;
+      user-select: text;
+    }
+    .edit-form textarea {
+      min-height: 64px;
+      resize: vertical;
+    }
+    .edit-form input:focus,
+    .edit-form textarea:focus { border-color: #1f4f3a; }
+    .edit-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+    .edit-actions button {
+      padding: 6px 14px;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .edit-actions .btn-secondary { background: #e0e0d8; color: #555; }
 
     .empty {
       text-align: center;
@@ -285,6 +329,8 @@
   <script>
     let currentTab = 'pending';
     let settingsVisible = false;
+    let taskCache = [];
+    let editingTaskId = null;
 
     async function loadTasks() {
       const pending = await window.api.tasks.listPending();
@@ -295,6 +341,7 @@
         ? await window.api.tasks.listCompleted()
         : pending;
 
+      taskCache = tasks;
       renderTasks(tasks);
     }
 
@@ -336,6 +383,7 @@
       }
 
       container.innerHTML = tasks.map(t => {
+        if (editingTaskId === t.id) return renderEditForm(t);
         const dl = deadlineLabel(t.deadline);
         const isDone = !!t.completed_at;
         return `
@@ -349,13 +397,41 @@
               <div class="actions">
                 ${isDone
                   ? `<button class="btn-reopen" onclick="reopenTask('${t.id}')">恢复</button>
+                     <button class="btn-edit" onclick="editTask('${t.id}')">编辑</button>
                      <button class="btn-delete" onclick="deleteTask('${t.id}')">删除</button>`
                   : `<button class="btn-done" onclick="completeTask('${t.id}')">完成</button>
+                     <button class="btn-edit" onclick="editTask('${t.id}')">编辑</button>
                      <button class="btn-delete" onclick="deleteTask('${t.id}')">删除</button>`}
               </div>
             </div>
           </div>`;
       }).join('');
+    }
+
+    function renderEditForm(task) {
+      return `
+        <div class="task-card">
+          <div class="edit-form">
+            <label>备注</label>
+            <input id="edit-note-${task.id}" value="${escapeHtml(task.note || '')}" placeholder="简短描述">
+            <label>原文</label>
+            <textarea id="edit-content-${task.id}">${escapeHtml(task.content || '')}</textarea>
+            <label>截止时间</label>
+            <input id="edit-deadline-${task.id}" type="datetime-local" value="${formatDateTimeInput(task.deadline)}">
+            ${renderAttachments(task.attachments)}
+            <div class="edit-actions">
+              <button class="btn-secondary task-edit-btn" onclick="cancelEdit()">取消</button>
+              <button class="btn-done task-edit-btn" onclick="saveTask('${task.id}')">保存</button>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    function formatDateTimeInput(iso) {
+      const d = new Date(iso);
+      if (Number.isNaN(d.getTime())) return '';
+      const pad = (n) => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
     }
 
     function renderAttachments(attachments) {
@@ -405,6 +481,31 @@
 
     async function deleteTask(id) {
       await window.api.tasks.delete(id);
+      loadTasks();
+    }
+
+    function editTask(id) {
+      editingTaskId = id;
+      renderTasks(taskCache);
+    }
+
+    function cancelEdit() {
+      editingTaskId = null;
+      renderTasks(taskCache);
+    }
+
+    async function saveTask(id) {
+      const content = document.getElementById(`edit-content-${id}`).value.trim();
+      const note = document.getElementById(`edit-note-${id}`).value.trim();
+      const deadlineValue = document.getElementById(`edit-deadline-${id}`).value;
+      if (!content || !deadlineValue) return;
+
+      await window.api.tasks.update(id, {
+        content,
+        note,
+        deadline: new Date(deadlineValue).toISOString(),
+      });
+      editingTaskId = null;
       loadTasks();
     }
 

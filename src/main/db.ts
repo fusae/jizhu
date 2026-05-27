@@ -144,6 +144,7 @@ export function updateTask(id: string, data: TaskUpdate): Task | undefined {
   const values: unknown[] = [];
   const shouldResetReminderFlags = data.deadline !== undefined;
 
+  if (data.content !== undefined) { sets.push('content = ?'); values.push(data.content); }
   if (data.note !== undefined) { sets.push('note = ?'); values.push(data.note); }
   if (data.deadline !== undefined) { sets.push('deadline = ?'); values.push(data.deadline); }
   if (data.attachments !== undefined) { sets.push('attachments = ?'); values.push(JSON.stringify(copyAttachments(id, data.attachments))); }

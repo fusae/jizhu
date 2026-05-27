@@ -9,7 +9,7 @@ contextBridge.exposeInMainWorld('api', {
     complete: (id: string) => ipcRenderer.invoke('tasks:complete', id),
     reopen: (id: string) => ipcRenderer.invoke('tasks:reopen', id),
     delete: (id: string) => ipcRenderer.invoke('tasks:delete', id),
-    update: (id: string, data: { note?: string; deadline?: string; attachments?: string[] }) =>
+    update: (id: string, data: { content?: string; note?: string; deadline?: string; attachments?: string[] }) =>
       ipcRenderer.invoke('tasks:update', id, data),
     countPending: () => ipcRenderer.invoke('tasks:count-pending'),
     onTaskAdded: (callback: (task: any) => void) => {

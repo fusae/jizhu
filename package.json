@@ -1,6 +1,6 @@
 {
   "name": "jizhu",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "记住 — 粘贴即任务，到点就提醒",
   "main": "dist/main/index.js",
   "scripts": {

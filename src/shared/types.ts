@@ -25,6 +25,7 @@ export interface TaskCreate {
 }
 
 export interface TaskUpdate {
+  content?: string;
   note?: string;
   deadline?: string;
   attachments?: string[];

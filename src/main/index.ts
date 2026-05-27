@@ -204,7 +204,7 @@ function registerIpc(): void {
     deleteTask(id);
     updateTrayBadge(countPending());
   });
-  ipcMain.handle('tasks:update', (_event, id: string, data: { note?: string; deadline?: string; attachments?: string[] }) => {
+  ipcMain.handle('tasks:update', (_event, id: string, data: { content?: string; note?: string; deadline?: string; attachments?: string[] }) => {
     updateTask(id, data);
   });
   ipcMain.handle('tasks:count-pending', () => countPending());
