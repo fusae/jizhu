@@ -75,8 +75,8 @@ function createQuickAddWindow(): void {
   }
 
   quickAddWindow = new BrowserWindow({
-    width: 440,
-    height: 430,
+    width: 500,
+    height: 560,
     resizable: false,
     frame: false,
     alwaysOnTop: true,
