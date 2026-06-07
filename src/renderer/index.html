@@ -254,6 +254,26 @@
       padding-top: 16px;
       border-top: 1px solid #e5e5dc;
     }
+    .quota-box {
+      padding: 14px;
+      border: 1px solid #e5e5dc;
+      border-radius: 8px;
+      background: #fff;
+      margin-bottom: 16px;
+    }
+    .quota-number {
+      font-size: 24px;
+      color: #1f4f3a;
+      font-weight: 800;
+      margin-top: 4px;
+    }
+    .contact-line {
+      margin-top: 10px;
+      font-size: 13px;
+      color: #666;
+      line-height: 1.6;
+      user-select: text;
+    }
     .update-row {
       display: flex;
       justify-content: space-between;
@@ -303,10 +323,11 @@
   </div>
   <div class="settings-panel" id="settingsPanel">
     <h3>设置</h3>
-    <label>DeepSeek API Key</label>
-    <input id="settingsApiKey" type="password" placeholder="sk-...">
-    <p style="font-size:11px;color:#aaa;margin:-8px 0 12px;">AI 自动解析粘贴内容需要此密钥。留空则手动填写。</p>
-    <button class="settings-save" onclick="saveSettings()">保存</button>
+    <div class="quota-box">
+      <label>智能解析剩余</label>
+      <div class="quota-number" id="quotaRemaining">-</div>
+      <div class="contact-line">需要增加智能解析次数，请联系开发者：fusae_js@163.com</div>
+    </div>
     <div class="settings-status" id="settingsStatus"></div>
     <div class="update-box">
       <div class="update-row">
@@ -531,8 +552,7 @@
       if (settingsVisible) {
         panel.classList.add('show');
         taskList.style.display = 'none';
-        const key = await window.api.settings.get('deepseekApiKey');
-        document.getElementById('settingsApiKey').value = key;
+        loadQuota();
         loadUpdateStatus();
       } else {
         panel.classList.remove('show');
@@ -540,13 +560,14 @@
       }
     }
 
-    async function saveSettings() {
-      const key = document.getElementById('settingsApiKey').value.trim();
-      await window.api.settings.set('deepseekApiKey', key);
-      document.getElementById('settingsStatus').textContent = '已保存';
-      setTimeout(() => document.getElementById('settingsStatus').textContent = '', 2000);
+    async function loadQuota() {
+      try {
+        const quota = await window.api.quota.get();
+        document.getElementById('quotaRemaining').textContent = `${quota.remaining} 次`;
+      } catch (err) {
+        document.getElementById('settingsStatus').textContent = err.message || '额度读取失败';
+      }
     }
-
     async function loadUpdateStatus() {
       document.getElementById('currentVersion').textContent = await window.api.app.getVersion();
       renderUpdateStatus(await window.api.updates.getStatus());

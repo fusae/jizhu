@@ -17,6 +17,7 @@ import type { TaskCreate } from '../shared/types';
 let isQuitting = false;
 let mainWindow: BrowserWindow | null = null;
 let quickAddWindow: BrowserWindow | null = null;
+const JIZHU_API_URL = process.env.JIZHU_API_URL || 'https://clawrent.xyz/jizhu-api';
 
 type UpdateStatus = {
   status: 'idle' | 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error';
@@ -122,6 +123,31 @@ function formatDeadlineInput(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${time}`;
 }
 
+function getDeviceId(): string {
+  let id = getSetting('serverDeviceId');
+  if (!id) {
+    id = `device_${Date.now().toString(36)}_${Math.random().toString(36).slice(2)}_${Math.random().toString(36).slice(2)}`;
+    setSetting('serverDeviceId', id);
+  }
+  return id;
+}
+
+function createRequestId(): string {
+  return `session_${Date.now().toString(36)}_${Math.random().toString(36).slice(2)}`;
+}
+
+async function apiJson(path: string, options: RequestInit = {}): Promise<any> {
+  const headers = {
+    'Content-Type': 'application/json',
+    'X-Device-Id': getDeviceId(),
+    ...(options.headers || {}),
+  };
+  const resp = await fetch(`${JIZHU_API_URL}${path}`, { ...options, headers });
+  const data = await resp.json().catch(() => ({})) as { error?: string };
+  if (!resp.ok) throw new Error(data.error || '请求失败');
+  return data;
+}
+
 function emitUpdateStatus(): void {
   mainWindow?.webContents.send('updates:status', updateStatus);
 }
@@ -216,46 +242,52 @@ function registerIpc(): void {
   });
 
   ipcMain.handle('ai-parse', async (_event, text: string) => {
-    const apiKey = process.env.DEEPSEEK_API_KEY || getSetting('deepseekApiKey');
-    if (!apiKey) return null;
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
 
-      const resp = await fetch('https://api.deepseek.com/chat/completions', {
+      const data = await apiJson('/v1/parse', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-        body: JSON.stringify({
-          model: 'deepseek-chat',
-          messages: [{
-            role: 'system',
-            content: `从聊天文本中提取：1.要做什么事（10字以内）2.截止时间。输出JSON：{"note":"...","deadline":"..."}。没有截止时间填"无"。deadline格式要求：使用"今天HH:MM"、"明天HH:MM"、"本周X HH:MM"格式，如"今天09:40"、"明天15:00"、"本周五18:00"。如果是相对时间（如"10分钟后"），请计算成具体时间后转换成这种格式。当前时间：${new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}`
-          }, {
-            role: 'user', content: text
-          }],
-          temperature: 0,
-          max_tokens: 100
-        }),
+        headers: { 'X-Request-Id': createRequestId() },
+        body: JSON.stringify({ text }),
         signal: controller.signal,
       });
       clearTimeout(timeoutId);
 
-      const data = await resp.json() as any;
-      const raw = data?.choices?.[0]?.message?.content?.trim();
-      if (!raw) return null;
-      const json = JSON.parse(raw.replace(/```json|```/g, '').trim());
-      const localDeadline = hasRelativeDuration(text)
-        ? chrono.zh.hans.parse(text, new Date(), { forwardDate: true })[0]?.start.date()
-        : null;
+      const tasks = (Array.isArray(data.tasks) ? data.tasks : []).map((task: any) => {
+        const deadlineDate = task.deadline ? new Date(task.deadline) : null;
+        const localDeadline = hasRelativeDuration(task.rawText || text)
+          ? chrono.zh.hans.parse(task.rawText || text, new Date(), { forwardDate: true })[0]?.start.date()
+          : null;
+        return {
+          note: task.title || '',
+          content: task.rawText || task.title || text,
+          deadline: localDeadline ? formatDeadlineInput(localDeadline) : deadlineDate && !Number.isNaN(deadlineDate.getTime()) ? formatDeadlineInput(deadlineDate) : '',
+        };
+      });
       return {
-        note: json.note || '',
-        deadline: localDeadline ? formatDeadlineInput(localDeadline) : (json.deadline === '无' ? '' : (json.deadline || '')),
+        note: tasks[0]?.note || '',
+        deadline: tasks[0]?.deadline || '',
+        tasks,
+        quota: data.quota,
       };
     } catch (err) {
       console.error('AI parse failed:', err);
-      return null;
+      return { error: err instanceof Error ? err.message : 'AI 解析失败' };
     }
   });
+
+  ipcMain.handle('quota:get', () => apiJson('/v1/quota'));
+  ipcMain.handle('payments:products', () => apiJson('/v1/payment/products'));
+  ipcMain.handle('payments:create-order', async (_event, productId: string) => {
+    const data = await apiJson('/v1/payment/orders', {
+      method: 'POST',
+      body: JSON.stringify({ productId }),
+    });
+    if (data.paymentUrl) await shell.openExternal(data.paymentUrl);
+    return data;
+  });
+  ipcMain.handle('payments:get-order', (_event, orderId: string) => apiJson(`/v1/payment/orders/${orderId}`));
 
   ipcMain.handle('settings:get', (_event, key: string) => getSetting(key));
   ipcMain.handle('settings:set', (_event, key: string, value: string) => setSetting(key, value));
@@ -302,15 +334,15 @@ function registerIpc(): void {
     quickAddWindow?.close();
   });
 
-  ipcMain.handle('quick-add:submit', (_event, data: TaskCreate) => {
-    const task = createTask(data);
+  ipcMain.handle('quick-add:submit', (_event, data: TaskCreate & { tasks?: TaskCreate[] }) => {
+    const tasks = Array.isArray(data.tasks) && data.tasks.length > 0 ? data.tasks.map((item) => createTask(item)) : [createTask(data)];
     updateTrayBadge(countPending());
     quickAddWindow?.close();
     if (mainWindow) {
-      mainWindow.webContents.send('task:added', task);
+      mainWindow.webContents.send('task:added', tasks[0]);
       mainWindow.show();
     }
-    return task;
+    return tasks;
   });
 
   ipcMain.handle('show-main', () => {

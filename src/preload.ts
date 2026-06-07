@@ -37,6 +37,14 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.on('updates:status', (_event, status) => callback(status));
     },
   },
+  quota: {
+    get: () => ipcRenderer.invoke('quota:get'),
+  },
+  payments: {
+    products: () => ipcRenderer.invoke('payments:products'),
+    createOrder: (productId: string) => ipcRenderer.invoke('payments:create-order', productId),
+    getOrder: (orderId: string) => ipcRenderer.invoke('payments:get-order', orderId),
+  },
   clipboard: {
     read: () => ipcRenderer.invoke('clipboard:read'),
   },
@@ -46,7 +54,7 @@ contextBridge.exposeInMainWorld('api', {
     showMain: () => ipcRenderer.invoke('show-main'),
     openQuickAdd: () => ipcRenderer.invoke('open-quick-add'),
     closeQuickAdd: () => ipcRenderer.invoke('quick-add:close'),
-    submitQuickAdd: (data: { content: string; note: string; deadline: string; attachments?: string[] }) =>
+    submitQuickAdd: (data: { content: string; note: string; deadline: string; attachments?: string[]; tasks?: any[] }) =>
       ipcRenderer.invoke('quick-add:submit', data),
   },
 });

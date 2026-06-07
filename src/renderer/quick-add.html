@@ -212,6 +212,7 @@
     let aiParsing = false;
     let debounceTimer = null;
     let selectedAttachments = [];
+    let parsedTasks = [];
 
     (async () => {
       const text = await window.api.clipboard.read();
@@ -237,13 +238,21 @@
           timeoutPromise
         ]);
 
+        if (result && result.error) {
+          hint.textContent = result.error === '免费次数已用完' ? '智能解析次数已用完，请联系开发者：fusae_js@163.com' : result.error;
+          hint.className = 'ai-hint';
+          return;
+        }
+        if (result && Array.isArray(result.tasks) && result.tasks.length > 0) {
+          parsedTasks = result.tasks;
+        }
         if (result && (result.note || result.deadline)) {
           if (result.note) document.getElementById('note').value = result.note;
           if (result.deadline) {
             document.getElementById('deadline').value = result.deadline;
             updatePreview();
           }
-          hint.textContent = 'AI 已自动填写，确认或修改即可';
+          hint.textContent = parsedTasks.length > 1 ? `AI 已识别 ${parsedTasks.length} 个任务，保存时会全部创建` : 'AI 已自动填写，确认或修改即可';
           hint.className = 'ai-hint';
         } else {
           hint.textContent = '';
@@ -303,6 +312,21 @@
 
       const note = document.getElementById('note').value.trim();
       const deadlineText = document.getElementById('deadline').value.trim();
+      if (parsedTasks.length > 1) {
+        const tasks = [];
+        for (const task of parsedTasks) {
+          const parsedDeadline = task.deadline ? await window.api.parseDeadline(task.deadline) : null;
+          tasks.push({
+            content: task.content || content,
+            note: task.note || '',
+            deadline: parsedDeadline || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+            attachments: selectedAttachments,
+          });
+        }
+        await window.api.window.submitQuickAdd({ content, note, deadline: tasks[0].deadline, attachments: selectedAttachments, tasks });
+        return;
+      }
+
       let deadline = null;
 
       if (deadlineText) {
