@@ -23,6 +23,14 @@ contextBridge.exposeInMainWorld('api', {
   },
   app: {
     getVersion: () => ipcRenderer.invoke('app:get-version'),
+    getDeviceId: () => ipcRenderer.invoke('app:get-device-id'),
+    setLanguage: (mode: string) => ipcRenderer.invoke('app:set-language', mode),
+    onLanguageChanged: (callback: (mode: string) => void) => {
+      ipcRenderer.on('language:changed', (_event, mode) => callback(mode));
+    },
+  },
+  purchase: {
+    open: () => ipcRenderer.invoke('purchase:open'),
   },
   attachments: {
     selectFiles: () => ipcRenderer.invoke('attachments:select-files'),
@@ -47,6 +55,7 @@ contextBridge.exposeInMainWorld('api', {
   },
   clipboard: {
     read: () => ipcRenderer.invoke('clipboard:read'),
+    write: (text: string) => ipcRenderer.invoke('clipboard:write', text),
   },
   aiParse: (text: string) => ipcRenderer.invoke('ai-parse', text),
   parseDeadline: (text: string) => ipcRenderer.invoke('parse-deadline', text),

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>快速添加</title>
+  <title>Quick Add</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -74,6 +74,12 @@
       gap: 6px;
       margin-top: 6px;
       flex-wrap: wrap;
+    }
+    .deadline-controls {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 6px;
+      margin-top: 6px;
     }
     .quick-time {
       padding: 4px 10px;
@@ -178,17 +184,21 @@
   </style>
 </head>
 <body>
-  <div class="titlebar">快速添加备忘</div>
+  <div class="titlebar" id="titlebar">快速添加备忘</div>
   <div class="form">
     <textarea id="content" placeholder="粘贴微信聊天内容，AI 会自动提取要点..."></textarea>
     <div id="aiHint" class="ai-hint"></div>
     <div class="field">
-      <label>备注（可选）</label>
+      <label id="noteLabel">备注（可选）</label>
       <input id="note" placeholder="简短描述，如：出稿子">
     </div>
     <div class="field">
-      <label>截止时间</label>
+      <label id="deadlineLabel">截止时间</label>
       <input id="deadline" placeholder="如：明天下午6点、周五、下周三">
+      <div class="deadline-controls">
+        <input id="deadlinePicker" type="datetime-local">
+        <button class="quick-time" id="clearDeadlineBtn" onclick="clearDeadline()">清除时间</button>
+      </div>
       <div class="quick-times">
         <button class="quick-time" onclick="setQuick('今天 18:00')">今天 18:00</button>
         <button class="quick-time" onclick="setQuick('明天 18:00')">明天 18:00</button>
@@ -198,13 +208,13 @@
     </div>
     <div class="preview" id="preview"></div>
     <div class="field">
-      <label>附件（可选）</label>
+      <label id="attachmentsLabel">附件（可选）</label>
       <div class="drop-zone" id="dropZone">把文件拖到这里</div>
       <div class="file-list" id="fileList"></div>
     </div>
     <div class="actions">
-      <button class="btn btn-secondary" onclick="closeWindow()">取消</button>
-      <button class="btn btn-primary" onclick="submitTask()">保存</button>
+      <button class="btn btn-secondary" id="cancelBtn" onclick="closeWindow()">取消</button>
+      <button class="btn btn-primary" id="saveBtn" onclick="submitTask()">保存</button>
     </div>
   </div>
 
@@ -213,20 +223,117 @@
     let debounceTimer = null;
     let selectedAttachments = [];
     let parsedTasks = [];
+    let languageMode = 'system';
+    let isEn = navigator.language.toLowerCase().startsWith('en');
+    const contactEmail = 'fusae_js@163.com';
+    const TEXT = {
+    en: {
+      title: 'Quick Add',
+      titlebar: 'Quick Add Reminder',
+      contentPlaceholder: 'Paste a chat message. AI will extract tasks automatically...',
+      note: 'Note (optional)',
+      notePlaceholder: 'Short description, e.g. report draft',
+      deadline: 'Deadline',
+      deadlinePlaceholder: 'e.g. tomorrow 6 PM, Friday, next Wednesday',
+      clearDeadline: 'Clear time',
+      today: 'Today 18:00',
+      tomorrow: 'Tomorrow 18:00',
+      friday: 'Friday',
+      monday: 'Next Monday',
+      attachments: 'Attachments (optional)',
+      dropZone: 'Drag files here',
+      cancel: 'Cancel',
+      save: 'Save',
+      aiLoading: 'AI recognizing...',
+      quotaUsed: `AI parses are used up. This is a beta version. Contact ${contactEmail} if you need more AI parses.`,
+      manyTasks: (count) => `AI recognized ${count} tasks. Saving will create all of them.`,
+      aiFilled: 'AI filled the fields. Confirm or edit.',
+      aiFailed: 'AI recognition failed. Fill in manually.',
+      noContent: 'Please enter task content',
+      defaultNote: 'Task',
+      previewLocale: 'en-US',
+    },
+    zh: {
+      title: '快速添加',
+      titlebar: '快速添加备忘',
+      contentPlaceholder: '粘贴微信聊天内容，AI 会自动提取要点...',
+      note: '备注（可选）',
+      notePlaceholder: '简短描述，如：出稿子',
+      deadline: '截止时间',
+      deadlinePlaceholder: '如：明天下午6点、周五、下周三',
+      clearDeadline: '清除时间',
+      today: '今天 18:00',
+      tomorrow: '明天 18:00',
+      friday: '本周五',
+      monday: '下周一',
+      attachments: '附件（可选）',
+      dropZone: '把文件拖到这里',
+      cancel: '取消',
+      save: '保存',
+      aiLoading: 'AI 识别中...',
+      quotaUsed: `智能解析次数已用完。当前为内测版本，如需增加次数，请联系开发者：${contactEmail}`,
+      manyTasks: (count) => `AI 已识别 ${count} 个任务，保存时会全部创建`,
+      aiFilled: 'AI 已自动填写，确认或修改即可',
+      aiFailed: 'AI 识别失败，请手动填写',
+      noContent: '请输入任务内容',
+      defaultNote: '任务',
+      previewLocale: 'zh-CN',
+    }};
+    let L = isEn ? TEXT.en : TEXT.zh;
+
+    function applyI18n() {
+      isEn = languageMode === 'en' || (languageMode === 'system' && navigator.language.toLowerCase().startsWith('en'));
+      L = isEn ? TEXT.en : TEXT.zh;
+      document.documentElement.lang = isEn ? 'en' : 'zh-CN';
+      document.title = L.title;
+      document.getElementById('titlebar').textContent = L.titlebar;
+      document.getElementById('content').placeholder = L.contentPlaceholder;
+      document.getElementById('noteLabel').textContent = L.note;
+      document.getElementById('note').placeholder = L.notePlaceholder;
+      document.getElementById('deadlineLabel').textContent = L.deadline;
+      document.getElementById('deadline').placeholder = L.deadlinePlaceholder;
+      document.getElementById('clearDeadlineBtn').textContent = L.clearDeadline;
+      document.getElementById('attachmentsLabel').textContent = L.attachments;
+      document.getElementById('dropZone').textContent = L.dropZone;
+      document.getElementById('cancelBtn').textContent = L.cancel;
+      document.getElementById('saveBtn').textContent = L.save;
+      const quickButtons = document.querySelectorAll('.quick-times .quick-time');
+      quickButtons[0].textContent = L.today;
+      quickButtons[1].textContent = L.tomorrow;
+      quickButtons[2].textContent = L.friday;
+      quickButtons[3].textContent = L.monday;
+      if (isEn) {
+        quickButtons[0].onclick = () => setQuick('Today 18:00');
+        quickButtons[1].onclick = () => setQuick('Tomorrow 18:00');
+        quickButtons[2].onclick = () => setQuick('Friday 18:00');
+        quickButtons[3].onclick = () => setQuick('Next Monday 09:00');
+      } else {
+        quickButtons[0].onclick = () => setQuick('今天 18:00');
+        quickButtons[1].onclick = () => setQuick('明天 18:00');
+        quickButtons[2].onclick = () => setQuick('本周五 18:00');
+        quickButtons[3].onclick = () => setQuick('下周一 09:00');
+      }
+    }
 
     (async () => {
+      languageMode = await window.api.settings.get('languageMode') || 'system';
+      applyI18n();
       const text = await window.api.clipboard.read();
       if (text) {
         document.getElementById('content').value = text;
         runAiParse(text);
       }
     })();
+    window.api.app.onLanguageChanged((mode) => {
+      languageMode = mode;
+      applyI18n();
+    });
 
     async function runAiParse(text) {
       if (!text || text.length < 10) return;
       aiParsing = true;
       const hint = document.getElementById('aiHint');
-      hint.textContent = 'AI 识别中...';
+      hint.textContent = L.aiLoading;
       hint.className = 'ai-hint loading';
 
       try {
@@ -239,7 +346,7 @@
         ]);
 
         if (result && result.error) {
-          hint.textContent = result.error === '免费次数已用完' ? '智能解析次数已用完，请联系开发者：fusae_js@163.com' : result.error;
+          hint.textContent = result.error === '免费次数已用完' ? L.quotaUsed : localizeError(result.error);
           hint.className = 'ai-hint';
           return;
         }
@@ -252,7 +359,7 @@
             document.getElementById('deadline').value = result.deadline;
             updatePreview();
           }
-          hint.textContent = parsedTasks.length > 1 ? `AI 已识别 ${parsedTasks.length} 个任务，保存时会全部创建` : 'AI 已自动填写，确认或修改即可';
+          hint.textContent = parsedTasks.length > 1 ? L.manyTasks(parsedTasks.length) : L.aiFilled;
           hint.className = 'ai-hint';
         } else {
           hint.textContent = '';
@@ -260,7 +367,7 @@
         }
       } catch (err) {
         console.error('AI parse error:', err);
-        hint.textContent = 'AI 识别失败，请手动填写';
+        hint.textContent = L.aiFailed;
         hint.className = 'ai-hint';
         setTimeout(() => {
           hint.textContent = '';
@@ -286,7 +393,14 @@
 
     function setQuick(time) {
       document.getElementById('deadline').value = time;
+      document.getElementById('deadlinePicker').value = '';
       updatePreview();
+    }
+
+    function clearDeadline() {
+      document.getElementById('deadline').value = '';
+      document.getElementById('deadlinePicker').value = '';
+      document.getElementById('preview').textContent = '';
     }
 
     async function updatePreview() {
@@ -294,7 +408,7 @@
       if (!text) { document.getElementById('preview').textContent = ''; return; }
       const iso = await window.api.parseDeadline(text);
       if (iso) {
-        document.getElementById('preview').textContent = '→ ' + new Date(iso).toLocaleString('zh-CN', {
+        document.getElementById('preview').textContent = '→ ' + new Date(iso).toLocaleString(L.previewLocale, {
           month: 'numeric', day: 'numeric',
           hour: '2-digit', minute: '2-digit',
           weekday: 'short',
@@ -305,10 +419,18 @@
     }
 
     document.getElementById('deadline').addEventListener('input', updatePreview);
+    document.getElementById('deadlinePicker').addEventListener('change', function() {
+      if (!this.value) return;
+      document.getElementById('deadline').value = this.value.replace('T', ' ');
+      updatePreview();
+    });
 
     async function submitTask() {
       const content = document.getElementById('content').value.trim();
-      if (!content) return;
+      if (!content) {
+        alert(L.noContent);
+        return;
+      }
 
       const note = document.getElementById('note').value.trim();
       const deadlineText = document.getElementById('deadline').value.trim();
@@ -319,7 +441,7 @@
           tasks.push({
             content: task.content || content,
             note: task.note || '',
-            deadline: parsedDeadline || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+            deadline: parsedDeadline || '',
             attachments: selectedAttachments,
           });
         }
@@ -333,11 +455,14 @@
         deadline = await window.api.parseDeadline(deadlineText);
       }
 
-      if (!deadline) {
-        deadline = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-      }
+      await window.api.window.submitQuickAdd({ content, note, deadline: deadline || '', attachments: selectedAttachments });
+    }
 
-      await window.api.window.submitQuickAdd({ content, note, deadline, attachments: selectedAttachments });
+    function localizeError(message) {
+      if (!isEn) return message;
+      if (message.includes('请求失败')) return 'Request failed';
+      if (message.includes('AI 解析失败')) return 'AI parsing failed';
+      return message;
     }
 
     function addAttachments(paths) {

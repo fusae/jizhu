@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>记住</title>
+  <title>JiZhu</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -267,6 +267,51 @@
       font-weight: 800;
       margin-top: 4px;
     }
+    .language-control {
+      display: flex;
+      gap: 4px;
+      padding: 3px;
+      margin-bottom: 16px;
+      border-radius: 6px;
+      background: #e9ece4;
+    }
+    .language-control button {
+      flex: 1;
+      min-height: 34px;
+      border: 0;
+      border-radius: 4px;
+      background: transparent;
+      color: #666;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .language-control button.active {
+      background: #1f4f3a;
+      color: #fff;
+    }
+    .quota-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .quota-actions button {
+      flex: 1;
+      padding: 7px 10px;
+      border: 0;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .quota-actions .primary { background: #1f4f3a; color: #fff; }
+    .quota-actions .secondary { background: #eef1ea; color: #31513f; }
+    .device-id {
+      margin-top: 10px;
+      color: #777;
+      font-size: 11px;
+      line-height: 1.5;
+      overflow-wrap: anywhere;
+      user-select: text;
+    }
     .contact-line {
       margin-top: 10px;
       font-size: 13px;
@@ -309,12 +354,12 @@
 <body>
   <div class="header">
     <div style="display:flex;align-items:baseline;">
-      <h1>记住</h1>
+      <h1 id="appTitle">记住</h1>
       <span class="count" id="pendingCount"></span>
     </div>
     <div style="display:flex;align-items:center;gap:8px;">
-      <button class="settings-btn" onclick="toggleSettings()" title="设置">⚙</button>
-      <button class="add-btn" onclick="openQuickAdd()">+ 新建</button>
+      <button class="settings-btn" id="settingsBtn" onclick="toggleSettings()" title="设置">⚙</button>
+      <button class="add-btn" id="addBtn" onclick="openQuickAdd()">+ 新建</button>
     </div>
   </div>
   <div class="tabs">
@@ -322,20 +367,31 @@
     <div class="tab" onclick="switchTab('done')" id="tab-done">已完成</div>
   </div>
   <div class="settings-panel" id="settingsPanel">
-    <h3>设置</h3>
-    <div class="quota-box">
-      <label>智能解析剩余</label>
+    <h3 id="settingsTitle">设置</h3>
+    <label id="languageLabel">语言</label>
+    <div class="language-control">
+      <button id="language-system" onclick="setLanguage('system')">跟随系统</button>
+      <button id="language-zh" onclick="setLanguage('zh')">中文</button>
+      <button id="language-en" onclick="setLanguage('en')">English</button>
+    </div>
+    <div class="quota-box" id="quotaBox">
+      <label id="quotaLabel">智能解析剩余</label>
       <div class="quota-number" id="quotaRemaining">-</div>
-      <div class="contact-line">需要增加智能解析次数，请联系开发者：fusae_js@163.com</div>
+      <div class="contact-line" id="contactLine">需要增加智能解析次数，请联系开发者：fusae_js@163.com</div>
+      <div class="device-id"><span id="deviceIdLabel">设备ID：</span><span id="deviceId">-</span></div>
+      <div class="quota-actions">
+        <button class="secondary" id="copyDeviceIdBtn" onclick="copyDeviceId()">复制设备ID</button>
+        <button class="primary" id="purchaseBtn" onclick="openPurchase()">增加识别次数</button>
+      </div>
     </div>
     <div class="settings-status" id="settingsStatus"></div>
     <div class="update-box">
       <div class="update-row">
-        <span>当前版本</span>
+        <span id="currentVersionLabel">当前版本</span>
         <strong id="currentVersion">-</strong>
       </div>
       <div class="update-row">
-        <span>更新</span>
+        <span id="updateLabel">更新</span>
         <strong id="updateStatus">未检查</strong>
       </div>
       <div class="update-actions">
@@ -352,6 +408,155 @@
     let settingsVisible = false;
     let taskCache = [];
     let editingTaskId = null;
+    let languageMode = 'system';
+    let activeLanguage = navigator.language.toLowerCase().startsWith('en') ? 'en' : 'zh';
+    const contactEmail = 'fusae_js@163.com';
+    const TEXT = {
+    en: {
+      appName: 'JiZhu',
+      settings: 'Settings',
+      language: 'Language',
+      followSystem: 'System',
+      chinese: '中文',
+      english: 'English',
+      newTask: '+ New',
+      pending: 'Todo',
+      done: 'Done',
+      quotaLabel: 'AI parses left',
+      quotaUnit: 'times',
+      contact: `Beta version. Contact ${contactEmail} if you need more AI parses.`,
+      currentVersion: 'Current version',
+      update: 'Update',
+      checkUpdate: 'Check for updates',
+      downloadUpdate: 'Download update',
+      installUpdate: 'Restart to install',
+      expired: 'Expired',
+      minutesLater: (n) => `${n} min later`,
+      hoursLater: (n) => `${n} hr later`,
+      today: 'Today',
+      tomorrow: 'Tomorrow',
+      daysLater: (n) => `${n} days later`,
+      noPending: 'No todo tasks',
+      noDone: 'No completed tasks',
+      shortcut: 'Press Cmd+Shift+T to quick add',
+      completed: 'Done',
+      restore: 'Restore',
+      edit: 'Edit',
+      delete: 'Delete',
+      save: 'Save',
+      cancel: 'Cancel',
+      note: 'Note',
+      notePlaceholder: 'Short description',
+      original: 'Original text',
+      deadline: 'Deadline',
+      noReminder: 'No reminder',
+      justNow: 'Just now',
+      minutesAgo: (n) => `${n} min ago`,
+      hoursAgo: (n) => `${n} hr ago`,
+      daysAgo: (n) => `${n} days ago`,
+      unchecked: 'Not checked',
+      checking: 'Checking...',
+      available: (v) => `Found ${v}`,
+      latest: 'Up to date',
+      downloading: 'Downloading...',
+      downloaded: 'Downloaded, ready to install',
+      failed: 'Check failed',
+      quotaFailed: 'Failed to load quota',
+      deviceId: 'Device ID:',
+      copyDeviceId: 'Copy device ID',
+      copied: 'Device ID copied',
+      addParses: 'Add AI parses',
+    },
+    zh: {
+      appName: '记住',
+      settings: '设置',
+      language: '语言',
+      followSystem: '跟随系统',
+      chinese: '中文',
+      english: 'English',
+      newTask: '+ 新建',
+      pending: '待办',
+      done: '已完成',
+      quotaLabel: '智能解析剩余',
+      quotaUnit: '次',
+      contact: `当前为内测版本，次数用完后可联系开发者增加智能解析次数：${contactEmail}`,
+      currentVersion: '当前版本',
+      update: '更新',
+      checkUpdate: '检查更新',
+      downloadUpdate: '下载更新',
+      installUpdate: '重启安装',
+      expired: '已过期',
+      minutesLater: (n) => `${n} 分钟后`,
+      hoursLater: (n) => `${n} 小时后`,
+      today: '今天',
+      tomorrow: '明天',
+      daysLater: (n) => `${n} 天后`,
+      noPending: '没有待办任务',
+      noDone: '没有已完成的任务',
+      shortcut: '按 Cmd+Shift+T 快速添加',
+      completed: '已完成',
+      restore: '恢复',
+      edit: '编辑',
+      delete: '删除',
+      save: '保存',
+      cancel: '取消',
+      note: '备注',
+      notePlaceholder: '简短描述',
+      original: '原文',
+      deadline: '截止时间',
+      noReminder: '不提醒',
+      justNow: '刚刚',
+      minutesAgo: (n) => `${n} 分钟前`,
+      hoursAgo: (n) => `${n} 小时前`,
+      daysAgo: (n) => `${n} 天前`,
+      unchecked: '未检查',
+      checking: '正在检查...',
+      available: (v) => `发现 ${v}`,
+      latest: '已是最新',
+      downloading: '正在下载...',
+      downloaded: '已下载，等待安装',
+      failed: '检查失败',
+      quotaFailed: '额度读取失败',
+      deviceId: '设备ID：',
+      copyDeviceId: '复制设备ID',
+      copied: '设备ID已复制',
+      addParses: '增加识别次数',
+    }};
+    let L = TEXT[activeLanguage];
+
+    function applyI18n() {
+      activeLanguage = languageMode === 'system'
+        ? (navigator.language.toLowerCase().startsWith('en') ? 'en' : 'zh')
+        : languageMode;
+      L = TEXT[activeLanguage];
+      document.documentElement.lang = activeLanguage === 'en' ? 'en' : 'zh-CN';
+      document.title = L.appName;
+      document.getElementById('appTitle').textContent = L.appName;
+      document.getElementById('settingsBtn').title = L.settings;
+      document.getElementById('addBtn').textContent = L.newTask;
+      document.getElementById('tab-pending').textContent = L.pending;
+      document.getElementById('tab-done').textContent = L.done;
+      document.getElementById('settingsTitle').textContent = L.settings;
+      document.getElementById('languageLabel').textContent = L.language;
+      document.getElementById('language-system').textContent = L.followSystem;
+      document.getElementById('language-zh').textContent = L.chinese;
+      document.getElementById('language-en').textContent = L.english;
+      for (const mode of ['system', 'zh', 'en']) {
+        document.getElementById(`language-${mode}`).classList.toggle('active', languageMode === mode);
+      }
+      document.getElementById('quotaLabel').textContent = L.quotaLabel;
+      document.getElementById('contactLine').textContent = L.contact;
+      document.getElementById('deviceIdLabel').textContent = L.deviceId;
+      document.getElementById('copyDeviceIdBtn').textContent = L.copyDeviceId;
+      document.getElementById('purchaseBtn').textContent = L.addParses;
+      document.getElementById('currentVersionLabel').textContent = L.currentVersion;
+      document.getElementById('updateLabel').textContent = L.update;
+      document.getElementById('checkUpdateBtn').textContent = L.checkUpdate;
+      document.getElementById('downloadUpdateBtn').textContent = L.downloadUpdate;
+      document.getElementById('installUpdateBtn').textContent = L.installUpdate;
+      document.getElementById('updateStatus').textContent = L.unchecked;
+      renderTasks(taskCache);
+    }
 
     async function loadTasks() {
       const pending = await window.api.tasks.listPending();
@@ -367,6 +572,7 @@
     }
 
     function deadlineLabel(iso) {
+      if (!iso) return { text: L.noReminder, cls: 'past' };
       const d = new Date(iso);
       const now = new Date();
       const diff = d.getTime() - now.getTime();
@@ -380,13 +586,13 @@
       const min = String(d.getMinutes()).padStart(2, '0');
       const dateStr = `${month}/${day} ${hour}:${min}`;
 
-      if (diff < 0) return { text: `已过期 · ${dateStr}`, cls: 'past' };
-      if (minutes <= 15) return { text: `${minutes} 分钟后 · ${dateStr}`, cls: 'urgent' };
-      if (hours <= 1) return { text: `${minutes} 分钟后 · ${dateStr}`, cls: 'urgent' };
-      if (hours <= 6) return { text: `${hours} 小时后 · ${dateStr}`, cls: 'warning' };
-      if (days === 0) return { text: `今天 ${hour}:${min}`, cls: 'normal' };
-      if (days === 1) return { text: `明天 ${hour}:${min}`, cls: 'normal' };
-      if (days <= 3) return { text: `${days} 天后 · ${dateStr}`, cls: 'normal' };
+      if (diff < 0) return { text: `${L.expired} · ${dateStr}`, cls: 'past' };
+      if (minutes <= 15) return { text: `${L.minutesLater(minutes)} · ${dateStr}`, cls: 'urgent' };
+      if (hours <= 1) return { text: `${L.minutesLater(minutes)} · ${dateStr}`, cls: 'urgent' };
+      if (hours <= 6) return { text: `${L.hoursLater(hours)} · ${dateStr}`, cls: 'warning' };
+      if (days === 0) return { text: `${L.today} ${hour}:${min}`, cls: 'normal' };
+      if (days === 1) return { text: `${L.tomorrow} ${hour}:${min}`, cls: 'normal' };
+      if (days <= 3) return { text: `${L.daysLater(days)} · ${dateStr}`, cls: 'normal' };
       return { text: dateStr, cls: 'normal' };
     }
 
@@ -397,8 +603,8 @@
         container.innerHTML = `
           <div class="empty">
             <div class="icon">${isPending ? '📋' : '✅'}</div>
-            <p>${isPending ? '没有待办任务' : '没有已完成的任务'}</p>
-            <p class="shortcut">${isPending ? '按 Cmd+Shift+T 快速添加' : ''}</p>
+            <p>${isPending ? L.noPending : L.noDone}</p>
+            <p class="shortcut">${isPending ? L.shortcut : ''}</p>
           </div>`;
         return;
       }
@@ -409,7 +615,7 @@
         const isDone = !!t.completed_at;
         return `
           <div class="task-card ${isDone ? 'done' : ''}">
-            <div class="deadline ${dl.cls}">${isDone ? '✅ 已完成' : dl.text}</div>
+            <div class="deadline ${dl.cls}">${isDone ? `✅ ${L.completed}` : dl.text}</div>
             ${t.note ? `<div class="note">${escapeHtml(t.note)}</div>` : ''}
             <div class="content">${escapeHtml(t.content)}</div>
             ${renderAttachments(t.attachments)}
@@ -417,12 +623,12 @@
               <span>${timeAgo(t.created_at)}</span>
               <div class="actions">
                 ${isDone
-                  ? `<button class="btn-reopen" onclick="reopenTask('${t.id}')">恢复</button>
-                     <button class="btn-edit" onclick="editTask('${t.id}')">编辑</button>
-                     <button class="btn-delete" onclick="deleteTask('${t.id}')">删除</button>`
-                  : `<button class="btn-done" onclick="completeTask('${t.id}')">完成</button>
-                     <button class="btn-edit" onclick="editTask('${t.id}')">编辑</button>
-                     <button class="btn-delete" onclick="deleteTask('${t.id}')">删除</button>`}
+                  ? `<button class="btn-reopen" onclick="reopenTask('${t.id}')">${L.restore}</button>
+                     <button class="btn-edit" onclick="editTask('${t.id}')">${L.edit}</button>
+                     <button class="btn-delete" onclick="deleteTask('${t.id}')">${L.delete}</button>`
+                  : `<button class="btn-done" onclick="completeTask('${t.id}')">${L.completed}</button>
+                     <button class="btn-edit" onclick="editTask('${t.id}')">${L.edit}</button>
+                     <button class="btn-delete" onclick="deleteTask('${t.id}')">${L.delete}</button>`}
               </div>
             </div>
           </div>`;
@@ -433,16 +639,16 @@
       return `
         <div class="task-card">
           <div class="edit-form">
-            <label>备注</label>
-            <input id="edit-note-${task.id}" value="${escapeHtml(task.note || '')}" placeholder="简短描述">
-            <label>原文</label>
+            <label>${L.note}</label>
+            <input id="edit-note-${task.id}" value="${escapeHtml(task.note || '')}" placeholder="${L.notePlaceholder}">
+            <label>${L.original}</label>
             <textarea id="edit-content-${task.id}">${escapeHtml(task.content || '')}</textarea>
-            <label>截止时间</label>
+            <label>${L.deadline}</label>
             <input id="edit-deadline-${task.id}" type="datetime-local" value="${formatDateTimeInput(task.deadline)}">
             ${renderAttachments(task.attachments)}
             <div class="edit-actions">
-              <button class="btn-secondary task-edit-btn" onclick="cancelEdit()">取消</button>
-              <button class="btn-done task-edit-btn" onclick="saveTask('${task.id}')">保存</button>
+              <button class="btn-secondary task-edit-btn" onclick="cancelEdit()">${L.cancel}</button>
+              <button class="btn-done task-edit-btn" onclick="saveTask('${task.id}')">${L.save}</button>
             </div>
           </div>
         </div>`;
@@ -470,11 +676,11 @@
     function timeAgo(iso) {
       const diff = Date.now() - new Date(iso).getTime();
       const mins = Math.round(diff / 60000);
-      if (mins < 1) return '刚刚';
-      if (mins < 60) return `${mins} 分钟前`;
+      if (mins < 1) return L.justNow;
+      if (mins < 60) return L.minutesAgo(mins);
       const hours = Math.round(mins / 60);
-      if (hours < 24) return `${hours} 小时前`;
-      return `${Math.round(hours / 24)} 天前`;
+      if (hours < 24) return L.hoursAgo(hours);
+      return L.daysAgo(Math.round(hours / 24));
     }
 
     function escapeHtml(s) {
@@ -519,12 +725,12 @@
       const content = document.getElementById(`edit-content-${id}`).value.trim();
       const note = document.getElementById(`edit-note-${id}`).value.trim();
       const deadlineValue = document.getElementById(`edit-deadline-${id}`).value;
-      if (!content || !deadlineValue) return;
+      if (!content) return;
 
       await window.api.tasks.update(id, {
         content,
         note,
-        deadline: new Date(deadlineValue).toISOString(),
+        deadline: deadlineValue ? new Date(deadlineValue).toISOString() : '',
       });
       editingTaskId = null;
       loadTasks();
@@ -539,7 +745,6 @@
       if (currentTab !== 'done') loadTasks();
     });
 
-    loadTasks();
     setInterval(() => {
       if (!settingsVisible) loadTasks();
     }, 30_000);
@@ -553,6 +758,7 @@
         panel.classList.add('show');
         taskList.style.display = 'none';
         loadQuota();
+        loadDeviceId();
         loadUpdateStatus();
       } else {
         panel.classList.remove('show');
@@ -563,10 +769,35 @@
     async function loadQuota() {
       try {
         const quota = await window.api.quota.get();
-        document.getElementById('quotaRemaining').textContent = `${quota.remaining} 次`;
+        document.getElementById('quotaRemaining').textContent = `${quota.remaining} ${L.quotaUnit}`;
+        document.getElementById('quotaLabel').style.display = quota.purchased > 0 && quota.remaining > 10 ? 'none' : '';
+        document.getElementById('quotaRemaining').style.display = quota.purchased > 0 && quota.remaining > 10 ? 'none' : '';
       } catch (err) {
-        document.getElementById('settingsStatus').textContent = err.message || '额度读取失败';
+        document.getElementById('settingsStatus').textContent = err.message || L.quotaFailed;
       }
+    }
+
+    async function loadDeviceId() {
+      document.getElementById('deviceId').textContent = await window.api.app.getDeviceId();
+    }
+
+    async function copyDeviceId() {
+      const deviceId = document.getElementById('deviceId').textContent;
+      if (!deviceId || deviceId === '-') return;
+      await window.api.clipboard.write(deviceId);
+      document.getElementById('settingsStatus').textContent = L.copied;
+    }
+
+    function openPurchase() {
+      window.api.purchase.open();
+    }
+
+    async function setLanguage(mode) {
+      languageMode = mode;
+      await window.api.app.setLanguage(mode);
+      applyI18n();
+      loadQuota();
+      loadUpdateStatus();
     }
     async function loadUpdateStatus() {
       document.getElementById('currentVersion').textContent = await window.api.app.getVersion();
@@ -583,13 +814,13 @@
       downloadBtn.style.display = state.status === 'available' ? '' : 'none';
       installBtn.style.display = state.status === 'downloaded' ? '' : 'none';
 
-      if (state.status === 'idle') status.textContent = '未检查';
-      else if (state.status === 'checking') status.textContent = '正在检查...';
-      else if (state.status === 'available') status.textContent = `发现 ${state.latestVersion}`;
-      else if (state.status === 'not-available') status.textContent = '已是最新';
-      else if (state.status === 'downloading') status.textContent = state.message || '正在下载...';
-      else if (state.status === 'downloaded') status.textContent = '已下载，等待安装';
-      else status.textContent = state.message || '检查失败';
+      if (state.status === 'idle') status.textContent = L.unchecked;
+      else if (state.status === 'checking') status.textContent = L.checking;
+      else if (state.status === 'available') status.textContent = L.available(state.latestVersion);
+      else if (state.status === 'not-available') status.textContent = L.latest;
+      else if (state.status === 'downloading') status.textContent = state.message || L.downloading;
+      else if (state.status === 'downloaded') status.textContent = L.downloaded;
+      else status.textContent = state.message || L.failed;
     }
 
     async function checkForUpdates() {
@@ -598,7 +829,7 @@
     }
 
     async function downloadUpdate() {
-      renderUpdateStatus({ status: 'downloading', message: '正在下载...' });
+      renderUpdateStatus({ status: 'downloading', message: L.downloading });
       await window.api.updates.download();
     }
 
@@ -606,6 +837,15 @@
       window.api.updates.install();
     }
 
+    (async () => {
+      languageMode = await window.api.settings.get('languageMode') || 'system';
+      applyI18n();
+      loadTasks();
+    })();
+    window.api.app.onLanguageChanged((mode) => {
+      languageMode = mode;
+      applyI18n();
+    });
     window.api.updates.onStatus(renderUpdateStatus);
   </script>
 </body>

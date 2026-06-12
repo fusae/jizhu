@@ -10,7 +10,7 @@ import {
   countPending,
   getSetting, setSetting, getAllSettings,
 } from './db';
-import { createTray, updateTrayBadge } from './tray';
+import { createTray, setTrayLanguage, updateTrayBadge } from './tray';
 import { startReminderLoop } from './reminder';
 import type { TaskCreate } from '../shared/types';
 
@@ -18,6 +18,11 @@ let isQuitting = false;
 let mainWindow: BrowserWindow | null = null;
 let quickAddWindow: BrowserWindow | null = null;
 const JIZHU_API_URL = process.env.JIZHU_API_URL || 'https://clawrent.xyz/jizhu-api';
+const PURCHASE_URL = 'https://m.tb.cn/h.RlgqMHh?tk=DNQIgWKGLdC';
+const languageMode = () => getSetting('languageMode') || 'system';
+const isEnglish = () => languageMode() === 'en' || (languageMode() === 'system' && app.getLocale().toLowerCase().startsWith('en'));
+const appTitle = () => isEnglish() ? 'JiZhu' : '记住';
+const quickAddTitle = () => isEnglish() ? 'Quick Add' : '快速添加';
 
 type UpdateStatus = {
   status: 'idle' | 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error';
@@ -42,7 +47,7 @@ function createMainWindow(): void {
     height: 640,
     minWidth: 380,
     minHeight: 500,
-    title: '记住',
+    title: appTitle(),
     webPreferences: {
       preload: join(__dirname, '..', 'preload.js'),
       contextIsolation: true,
@@ -81,7 +86,7 @@ function createQuickAddWindow(): void {
     resizable: false,
     frame: false,
     alwaysOnTop: true,
-    title: '快速添加',
+    title: quickAddTitle(),
     webPreferences: {
       preload: join(__dirname, '..', 'preload.js'),
       contextIsolation: true,
@@ -105,7 +110,16 @@ function registerShortcuts(): void {
 }
 
 function hasRelativeDuration(text: string): boolean {
-  return /(?:\d+|[一二两三四五六七八九十两半]+)\s*(?:秒|分钟|小时|天|周|星期|礼拜|个月)\s*后/.test(text);
+  return /(?:\d+|[一二两三四五六七八九十两半]+)\s*(?:秒|分钟|小时|天|周|星期|礼拜|个月)\s*后/i.test(text)
+    || /\b(?:in\s+)?\d+\s*(?:sec|second|seconds|min|minute|minutes|hour|hours|day|days|week|weeks|month|months)\b/i.test(text);
+}
+
+function parseNaturalDate(text: string): Date | null {
+  const now = new Date();
+  const zh = chrono.zh.hans.parse(text, now, { forwardDate: true });
+  if (zh[0]) return zh[0].start.date();
+  const en = chrono.en.parse(text, now, { forwardDate: true });
+  return en[0]?.start.date() ?? null;
 }
 
 function formatDeadlineInput(date: Date): string {
@@ -118,8 +132,8 @@ function formatDeadlineInput(date: Date): string {
     a.getDate() === b.getDate();
   const time = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 
-  if (sameDay(date, now)) return `今天 ${time}`;
-  if (sameDay(date, tomorrow)) return `明天 ${time}`;
+  if (sameDay(date, now)) return `${isEnglish() ? 'Today' : '今天'} ${time}`;
+  if (sameDay(date, tomorrow)) return `${isEnglish() ? 'Tomorrow' : '明天'} ${time}`;
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${time}`;
 }
 
@@ -130,6 +144,15 @@ function getDeviceId(): string {
     setSetting('serverDeviceId', id);
   }
   return id;
+}
+
+function applyLanguage(mode: string): void {
+  setSetting('languageMode', mode === 'zh' || mode === 'en' ? mode : 'system');
+  mainWindow?.setTitle(appTitle());
+  quickAddWindow?.setTitle(quickAddTitle());
+  setTrayLanguage(languageMode());
+  mainWindow?.webContents.send('language:changed', languageMode());
+  quickAddWindow?.webContents.send('language:changed', languageMode());
 }
 
 function createRequestId(): string {
@@ -144,7 +167,7 @@ async function apiJson(path: string, options: RequestInit = {}): Promise<any> {
   };
   const resp = await fetch(`${JIZHU_API_URL}${path}`, { ...options, headers });
   const data = await resp.json().catch(() => ({})) as { error?: string };
-  if (!resp.ok) throw new Error(data.error || '请求失败');
+  if (!resp.ok) throw new Error(data.error || (isEnglish() ? 'Request failed' : '请求失败'));
   return data;
 }
 
@@ -236,9 +259,7 @@ function registerIpc(): void {
   ipcMain.handle('tasks:count-pending', () => countPending());
 
   ipcMain.handle('parse-deadline', (_event, text: string) => {
-    const results = chrono.zh.hans.parse(text, new Date(), { forwardDate: true });
-    if (results.length === 0) return null;
-    return results[0].start.date().toISOString();
+    return parseNaturalDate(text)?.toISOString() ?? null;
   });
 
   ipcMain.handle('ai-parse', async (_event, text: string) => {
@@ -257,7 +278,7 @@ function registerIpc(): void {
       const tasks = (Array.isArray(data.tasks) ? data.tasks : []).map((task: any) => {
         const deadlineDate = task.deadline ? new Date(task.deadline) : null;
         const localDeadline = hasRelativeDuration(task.rawText || text)
-          ? chrono.zh.hans.parse(task.rawText || text, new Date(), { forwardDate: true })[0]?.start.date()
+          ? parseNaturalDate(task.rawText || text)
           : null;
         return {
           note: task.title || '',
@@ -273,7 +294,7 @@ function registerIpc(): void {
       };
     } catch (err) {
       console.error('AI parse failed:', err);
-      return { error: err instanceof Error ? err.message : 'AI 解析失败' };
+      return { error: err instanceof Error ? err.message : (isEnglish() ? 'AI parsing failed' : 'AI 解析失败') };
     }
   });
 
@@ -294,6 +315,9 @@ function registerIpc(): void {
   ipcMain.handle('settings:getAll', () => getAllSettings());
 
   ipcMain.handle('app:get-version', () => app.getVersion());
+  ipcMain.handle('app:get-device-id', () => getDeviceId());
+  ipcMain.handle('app:set-language', (_event, mode: string) => applyLanguage(mode));
+  ipcMain.handle('purchase:open', () => shell.openExternal(PURCHASE_URL));
   ipcMain.handle('attachments:select-files', async () => {
     const options: OpenDialogOptions = { properties: ['openFile', 'multiSelections'] };
     const parent = quickAddWindow || mainWindow;
@@ -362,10 +386,15 @@ function registerIpc(): void {
     const { clipboard } = require('electron');
     return clipboard.readText();
   });
+  ipcMain.handle('clipboard:write', (_event, text: string) => {
+    const { clipboard } = require('electron');
+    clipboard.writeText(text);
+  });
 }
 
 app.whenReady().then(() => {
   initDatabase();
+  setTrayLanguage(languageMode());
   createMainWindow();
   createTray();
   configureAutoUpdater();

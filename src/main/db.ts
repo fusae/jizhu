@@ -107,7 +107,7 @@ export function getTask(id: string): Task | undefined {
 
 export function listPending(): Task[] {
   const rows = db.prepare(
-    "SELECT * FROM tasks WHERE completed_at IS NULL ORDER BY deadline ASC"
+    "SELECT * FROM tasks WHERE completed_at IS NULL ORDER BY CASE WHEN deadline = '' THEN 1 ELSE 0 END, deadline ASC, created_at DESC"
   ).all();
   return rows.map(normalizeTask);
 }
@@ -124,7 +124,7 @@ export function listDueForReminder(): Task[] {
   const in1h = new Date(now.getTime() + 60 * 60 * 1000);
   const in15m = new Date(now.getTime() + 15 * 60 * 1000);
   const rows = db.prepare(
-    'SELECT * FROM tasks WHERE completed_at IS NULL ORDER BY deadline ASC'
+    "SELECT * FROM tasks WHERE completed_at IS NULL AND deadline != '' ORDER BY deadline ASC"
   ).all();
 
   return rows
