@@ -53,6 +53,7 @@
     .tab.active { color: #1f4f3a; border-bottom-color: #1f4f3a; }
     .task-list { padding: 12px; }
     .task-card {
+      position: relative;
       background: #fff;
       border-radius: 8px;
       padding: 14px;
@@ -72,6 +73,20 @@
     .task-card .deadline.warning { color: #e67e22; }
     .task-card .deadline.normal { color: #1f4f3a; }
     .task-card .deadline.past { color: #999; }
+    .overdue-stamp {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      padding: 3px 8px;
+      border: 1px solid rgba(211, 91, 111, .32);
+      border-radius: 4px;
+      color: rgba(211, 91, 111, .5);
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 1;
+      transform: rotate(7deg);
+      pointer-events: none;
+    }
     .task-card .content {
       font-size: 13px;
       color: #555;
@@ -613,8 +628,11 @@
         if (editingTaskId === t.id) return renderEditForm(t);
         const dl = deadlineLabel(t.deadline);
         const isDone = !!t.completed_at;
+        const deadlineTime = t.deadline ? new Date(t.deadline).getTime() : NaN;
+        const isOverdue = !isDone && Number.isFinite(deadlineTime) && deadlineTime < Date.now();
         return `
           <div class="task-card ${isDone ? 'done' : ''}">
+            ${isOverdue ? `<div class="overdue-stamp">${L.expired}</div>` : ''}
             <div class="deadline ${dl.cls}">${isDone ? `✅ ${L.completed}` : dl.text}</div>
             ${t.note ? `<div class="note">${escapeHtml(t.note)}</div>` : ''}
             <div class="content">${escapeHtml(t.content)}</div>
