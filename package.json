@@ -8,9 +8,9 @@
     "copy-files": "node scripts/copy-renderer.js",
     "start": "npm run build && electron .",
     "dev": "tsc && electron .",
-    "pack:mac": "npm run build && electron-builder --mac --arm64 --x64",
-    "pack:win": "npm run build && electron-builder --win --x64",
-    "pack:all": "npm run build && electron-builder --mac --arm64 --x64 --win --x64"
+    "pack:mac": "npm run build && electron-builder --mac --arm64 --x64 --publish never",
+    "pack:win": "npm run build && electron-builder --win --x64 --publish never",
+    "pack:all": "npm run build && electron-builder --mac --arm64 --x64 --win --x64 --publish never"
   },
   "build": {
     "appId": "com.cola.jizhu",
