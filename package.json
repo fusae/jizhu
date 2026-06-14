@@ -1,11 +1,11 @@
 {
   "name": "jizhu",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "description": "记住 — 粘贴即任务，到点就提醒",
   "main": "dist/main/index.js",
   "scripts": {
     "build": "tsc && npm run copy-files",
-    "copy-files": "mkdir -p dist/renderer && cp src/renderer/*.html dist/renderer/",
+    "copy-files": "node scripts/copy-renderer.js",
     "start": "npm run build && electron .",
     "dev": "tsc && electron .",
     "pack:mac": "npm run build && electron-builder --mac --arm64 --x64",
